@@ -1,0 +1,1922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Keel · Investment Research</title>
+<meta name="description" content="A personal investment research and decision support workspace.">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0A0D12">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Keel">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0A0D12; --surface:#10141B; --surface2:#141922; --elevated:#1A2029; --overlay:#0A0D12CC;
+  --border:#222836; --border-soft:#1A2029;
+  --text:#E7EAF0; --text2:#9AA4B6; --muted:#616B7D;
+  --accent:#5B8DEF; --accent-soft:#5B8DEF1F; --accent-dim:#3E5C99;
+  --positive:#39B978; --positive-soft:#39B9781A;
+  --negative:#E15A63; --negative-soft:#E15A631A;
+  --warning:#D6A544; --warning-soft:#D6A5441A;
+  --purple:#8C7EF0; --purple-soft:#8C7EF01A;
+  --radius:10px; --radius-sm:7px;
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+:root:not([data-theme="light"]){ color-scheme: dark; }
+:root[data-theme="light"]{
+  color-scheme: light;
+  --bg:#F5F6F8; --surface:#FFFFFF; --surface2:#F1F3F6; --elevated:#E9ECF1; --overlay:#1B222EBB;
+  --border:#DEE2E9; --border-soft:#E7EAEF;
+  --text:#161B24; --text2:#565F70; --muted:#8991A1;
+  --accent:#3E68C9; --accent-soft:#3E68C91A; --accent-dim:#7C99DE;
+  --positive:#1E9A5C; --positive-soft:#1E9A5C17;
+  --negative:#D5424B; --negative-soft:#D5424B17;
+  --warning:#B4791E; --warning-soft:#B4791E17;
+  --purple:#6D5CDB; --purple-soft:#6D5CDB17;
+}
+*{box-sizing:border-box;}
+html,body{height:100%;}
+body{
+  margin:0; background:var(--bg); color:var(--text); font-family:var(--font);
+  font-size:13px; line-height:1.5; -webkit-font-smoothing:antialiased;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+html{ scroll-padding-top:env(safe-area-inset-top,0px); }
+::-webkit-scrollbar{width:9px;height:9px;}
+::-webkit-scrollbar-thumb{background:#252C39;border-radius:8px;}
+::-webkit-scrollbar-track{background:transparent;}
+a{color:inherit;}
+button{font-family:inherit;}
+input,textarea,select{font-family:inherit;}
+:focus-visible{outline:2px solid var(--accent); outline-offset:1px;}
+.num{font-variant-numeric:tabular-nums;}
+
+/* ---------- layout shell ---------- */
+#app{display:flex; min-height:100vh;}
+.sidebar{
+  width:232px; flex:none; background:var(--surface); border-right:1px solid var(--border-soft);
+  display:flex; flex-direction:column; height:100vh; position:sticky; top:0;
+  padding-top:calc(14px + env(safe-area-inset-top,0px));
+  transition:width .16s ease;
+}
+.sidebar.collapsed{width:64px;}
+.sidebar.collapsed .side-label, .sidebar.collapsed .side-group, .sidebar.collapsed .brand-text, .sidebar.collapsed .nav-badge{display:none;}
+.sidebar.collapsed .nav-item{justify-content:center;}
+.brand{display:flex; align-items:center; gap:9px; padding:0 16px 16px; cursor:pointer;}
+.brand-mark{width:26px;height:26px;border-radius:7px;background:linear-gradient(155deg,var(--accent),var(--purple));display:flex;align-items:center;justify-content:center;flex:none;}
+.brand-mark svg{width:14px;height:14px;}
+.brand-text .t1{font-weight:700;font-size:14.5px;letter-spacing:-.01em;}
+.brand-text .t2{font-size:10.5px;color:var(--muted);}
+.back-btn{display:inline-flex;align-items:center;gap:6px;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;padding:5px 9px 5px 5px;border-radius:20px;margin-bottom:10px;}
+.back-btn:hover{background:var(--elevated);color:var(--text);}
+.back-btn svg{width:15px;height:15px;}
+.search-wrap{position:relative;flex:1;max-width:460px;}
+.search-results{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--elevated);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:0 10px 28px #00000055;z-index:40;max-height:320px;overflow-y:auto;}
+.search-results .sr-item{display:flex;align-items:center;gap:9px;padding:8px 11px;cursor:pointer;}
+.search-results .sr-item:hover{background:var(--surface2);}
+.search-results .sr-empty{padding:14px;font-size:12px;color:var(--muted);text-align:center;}
+.avatar-wrap{position:relative;}
+.avatar-menu{position:absolute;top:calc(100% + 8px);right:0;background:var(--elevated);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:0 10px 28px #00000055;width:200px;z-index:40;padding:6px;}
+.avatar-menu .am-head{padding:8px 9px;font-size:12px;font-weight:600;border-bottom:1px solid var(--border-soft);margin-bottom:4px;}
+.avatar-menu .am-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 9px;font-size:12px;color:var(--text2);border-radius:6px;cursor:pointer;}
+.avatar-menu .am-item:hover{background:var(--surface2);color:var(--text);}
+.theme-switch{width:34px;height:19px;border-radius:20px;background:var(--border);position:relative;cursor:pointer;flex:none;}
+.theme-switch .knob{position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:var(--text);transition:transform .15s ease;}
+.theme-switch.on{background:var(--accent);}
+.theme-switch.on .knob{transform:translateX(15px);background:#fff;}
+.side-scroll{flex:1;overflow-y:auto;padding:2px 10px 10px;}
+.side-group{font-size:10.5px;font-weight:600;letter-spacing:.07em;color:var(--muted);padding:14px 8px 6px;}
+.nav-item{
+  display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:var(--radius-sm);
+  color:var(--text2);font-size:13px;font-weight:500;cursor:pointer;margin-bottom:1px;position:relative;
+}
+.nav-item:hover{background:var(--elevated);color:var(--text);}
+.nav-item.active{background:var(--accent-soft);color:var(--text);}
+.nav-item.active::before{content:"";position:absolute;left:-10px;top:6px;bottom:6px;width:2.5px;background:var(--accent);border-radius:2px;}
+.nav-item svg{width:15px;height:15px;flex:none;opacity:.9;}
+.nav-badge{margin-left:auto;font-size:10.5px;color:var(--muted);background:var(--elevated);border:1px solid var(--border-soft);padding:1px 6px;border-radius:20px;}
+.side-foot{border-top:1px solid var(--border-soft);padding:10px;}
+.collapse-btn{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;cursor:pointer;padding:6px 8px;border-radius:var(--radius-sm);}
+.collapse-btn:hover{background:var(--elevated);}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column;}
+.topbar{
+  height:52px;flex:none;display:flex;align-items:center;gap:14px;padding:0 20px;
+  border-bottom:1px solid var(--border-soft);background:var(--bg);position:sticky;top:0;z-index:20;
+  padding-top:env(safe-area-inset-top,0px);
+}
+.search{flex:1;max-width:460px;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 11px;color:var(--muted);}
+.search input{background:none;border:none;color:var(--text);font-size:12.5px;width:100%;}
+.search input::placeholder{color:var(--muted);}
+.search svg{width:14px;height:14px;flex:none;}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:14px;}
+.save-indicator{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:5px;}
+.save-dot{width:5px;height:5px;border-radius:50%;background:var(--positive);}
+.save-dot.saving{background:var(--warning);}
+.icon-btn{width:30px;height:30px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;color:var(--text2);cursor:pointer;border:1px solid transparent;}
+.icon-btn:hover{background:var(--elevated);border-color:var(--border-soft);}
+.avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(155deg,var(--purple),var(--accent));display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;cursor:pointer;}
+
+.content{flex:1;padding:22px 26px 60px;max-width:1400px;width:100%;margin:0 auto;}
+
+/* ---------- headers / tabs ---------- */
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:18px;}
+.crumb{font-size:11.5px;color:var(--muted);margin-bottom:6px;}
+.crumb b{color:var(--text2);font-weight:500;}
+.page-title{font-size:21px;font-weight:700;letter-spacing:-.015em;margin:0 0 4px;}
+.page-sub{color:var(--text2);font-size:12.5px;max-width:640px;}
+.head-meta{text-align:right;font-size:11px;color:var(--muted);white-space:nowrap;}
+.head-meta .lbl{display:block;}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border-soft);margin-bottom:20px;overflow-x:auto;}
+.tab{padding:9px 3px;margin-right:22px;font-size:12.5px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;}
+.tab:hover{color:var(--text);}
+.tab.active{color:var(--text);border-bottom-color:var(--accent);font-weight:600;}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:var(--radius-sm);cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--text);}
+.btn:hover{background:var(--elevated);}
+.btn svg{width:13px;height:13px;}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+.btn-primary:hover{background:#4D80DE;}
+.btn-ghost{background:none;border-color:transparent;color:var(--text2);}
+.btn-ghost:hover{background:var(--elevated);color:var(--text);}
+.btn-sm{padding:5px 10px;font-size:11.5px;}
+.btn-danger{color:var(--negative);}
+
+/* ---------- grid / cards ---------- */
+.grid{display:grid;gap:14px;}
+.grid-4{grid-template-columns:repeat(4,1fr);}
+.grid-3{grid-template-columns:2fr 1.3fr 1.1fr;}
+.grid-2{grid-template-columns:1.4fr 1fr;}
+@media(max-width:980px){.grid-4{grid-template-columns:repeat(2,1fr);} .grid-3,.grid-2{grid-template-columns:1fr;}}
+.card{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius);padding:16px;}
+.card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.card-title{font-size:12.5px;font-weight:600;}
+.card-link{font-size:11.5px;color:var(--accent);cursor:pointer;display:flex;align-items:center;gap:3px;}
+
+.kpi{display:flex;align-items:flex-start;gap:11px;}
+.kpi-icon{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:none;}
+.kpi-icon svg{width:16px;height:16px;}
+.kpi-val{font-size:22px;font-weight:700;letter-spacing:-.01em;}
+.kpi-lbl{font-size:11.5px;color:var(--text2);margin-top:1px;}
+.kpi-delta{font-size:10.5px;color:var(--muted);margin-top:3px;}
+.up{color:var(--positive);}
+.down{color:var(--negative);}
+
+/* ---------- tables ---------- */
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:12.5px;}
+th{text-align:left;color:var(--muted);font-weight:500;font-size:11px;letter-spacing:.03em;padding:0 10px 8px;white-space:nowrap;border-bottom:1px solid var(--border-soft);}
+th.num,td.num{text-align:right;}
+td{padding:9px 10px;border-bottom:1px solid var(--border-soft);vertical-align:middle;}
+tbody tr{cursor:pointer;}
+tbody tr:hover{background:var(--elevated);}
+.row-name{display:flex;align-items:center;gap:9px;}
+.row-avatar{width:26px;height:26px;border-radius:7px;background:var(--elevated);border:1px solid var(--border-soft);display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:700;color:var(--text2);flex:none;}
+.row-main{font-weight:600;font-size:12.5px;}
+.row-sub{font-size:11px;color:var(--muted);}
+
+.pill{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:20px;font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums;}
+.pill-lg{padding:3px 11px;font-size:13px;}
+.pill.s-high{background:var(--positive-soft);color:var(--positive);}
+.pill.s-mid{background:var(--warning-soft);color:var(--warning);}
+.pill.s-low{background:var(--negative-soft);color:var(--negative);}
+.pill.s-neu{background:var(--elevated);color:var(--text2);}
+
+.status-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:5px;}
+.status-badge::before{content:"";width:6px;height:6px;border-radius:50%;}
+.st-draft{background:var(--elevated);color:var(--text2);}.st-draft::before{background:var(--muted);}
+.st-inprogress{background:var(--accent-soft);color:var(--accent);}.st-inprogress::before{background:var(--accent);}
+.st-complete{background:var(--positive-soft);color:var(--positive);}.st-complete::before{background:var(--positive);}
+.st-needsreview{background:var(--negative-soft);color:var(--negative);}.st-needsreview::before{background:var(--negative);}
+.st-watching{background:var(--purple-soft);color:var(--purple);}.st-watching::before{background:var(--purple);}
+.st-archived{background:var(--elevated);color:var(--muted);}.st-archived::before{background:var(--muted);}
+
+/* ---------- misc components ---------- */
+.bar-chart{display:flex;align-items:flex-end;gap:10px;height:120px;padding-top:8px;}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end;}
+.bar{width:100%;background:linear-gradient(180deg,var(--accent),var(--accent-dim));border-radius:4px 4px 2px 2px;min-height:2px;}
+.bar-pct{font-size:10.5px;color:var(--muted);}
+.bar-lbl{font-size:10.5px;color:var(--text2);}
+
+.attn-row, .list-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-soft);}
+.attn-row:last-child,.list-row:last-child{border-bottom:none;}
+.dot-warn{width:7px;height:7px;border-radius:50%;background:var(--warning);flex:none;}
+.list-avatar{width:26px;height:26px;border-radius:7px;background:var(--elevated);border:1px solid var(--border-soft);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--text2);flex:none;}
+.list-main{flex:1;min-width:0;}
+.list-title{font-size:12.5px;font-weight:600;}
+.list-sub{font-size:11px;color:var(--muted);}
+.list-time{font-size:11px;color:var(--muted);white-space:nowrap;}
+
+.radial{position:relative;width:118px;height:118px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;}
+.radial-inner{position:absolute;inset:9px;border-radius:50%;background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.radial-val{font-size:27px;font-weight:800;line-height:1;}
+.radial-of{font-size:10px;color:var(--muted);margin-top:2px;}
+
+.filter-bar{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.chip{display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:6px 11px;font-size:12px;color:var(--text2);cursor:pointer;}
+.chip svg{width:12px;height:12px;}
+.select-native{background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:12px;padding:6px 10px;border-radius:20px;cursor:pointer;}
+.search-inline{display:flex;align-items:center;gap:7px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:6px 12px;flex:1;min-width:180px;max-width:280px;}
+.search-inline input{background:none;border:none;color:var(--text);font-size:12px;width:100%;}
+.search-inline svg{width:12px;height:12px;color:var(--muted);}
+
+.empty-state{padding:44px 20px;text-align:center;}
+.empty-state svg{width:34px;height:34px;color:var(--muted);margin-bottom:12px;}
+.empty-title{font-size:13.5px;font-weight:600;margin-bottom:4px;}
+.empty-sub{font-size:12px;color:var(--muted);max-width:340px;margin:0 auto 16px;}
+
+/* accordion / assessment */
+.accordion{border:1px solid var(--border-soft);border-radius:var(--radius);margin-bottom:10px;overflow:hidden;}
+.acc-head{display:flex;align-items:center;gap:12px;padding:13px 15px;cursor:pointer;background:var(--surface);}
+.acc-head:hover{background:var(--surface2);}
+.acc-chev{width:14px;height:14px;color:var(--muted);transition:transform .12s ease;flex:none;}
+.accordion.open .acc-chev{transform:rotate(90deg);}
+.acc-title{font-weight:600;font-size:13px;flex:1;}
+.acc-title .tag{font-size:9.5px;color:var(--negative);background:var(--negative-soft);padding:1px 6px;border-radius:20px;margin-left:8px;font-weight:700;letter-spacing:.03em;vertical-align:1px;}
+.acc-meta{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:10px;}
+.acc-body{padding:2px 15px 14px;border-top:1px solid var(--border-soft);}
+.acc-desc{font-size:11.5px;color:var(--muted);padding:11px 0 2px;}
+.progress-track{width:64px;height:5px;border-radius:4px;background:var(--elevated);overflow:hidden;flex:none;}
+.progress-fill{height:100%;background:var(--accent);}
+.progress-track.thin{width:44px;height:4px;}
+
+.criterion{border-top:1px solid var(--border-soft);padding:14px 0;}
+.criterion:first-child{border-top:none;}
+.crit-name{font-size:12.5px;font-weight:600;margin-bottom:9px;display:flex;align-items:center;justify-content:space-between;}
+.crit-row{display:flex;align-items:flex-start;gap:34px;margin-bottom:9px;}
+.crit-field{display:flex;flex-direction:column;gap:4px;}
+.crit-field-lbl{font-size:10.5px;color:var(--muted);font-weight:600;letter-spacing:.02em;}
+.scale{display:flex;gap:4px;}
+.scale-btn{width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.scale-btn:hover{border-color:var(--accent);}
+.scale-btn.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+.scale-btn.risk.on{background:var(--positive);border-color:var(--positive);}
+.scale-hint{font-size:10px;color:var(--muted);margin-top:2px;}
+textarea.reason{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:12px;padding:8px 10px;resize:vertical;min-height:52px;font-family:var(--font);line-height:1.5;}
+textarea.reason::placeholder{color:var(--muted);}
+.evidence-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px;}
+.evidence-chip{font-size:11px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 10px;color:var(--text2);display:flex;align-items:center;gap:6px;}
+.evidence-chip button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;line-height:1;padding:0;}
+.add-evidence{font-size:11px;color:var(--accent);cursor:pointer;display:inline-flex;align-items:center;gap:4px;margin-top:7px;}
+
+.metric-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:16px;}
+.metric-box{background:var(--surface2);border:1px solid var(--border-soft);border-radius:var(--radius-sm);padding:10px 12px;}
+.metric-box label{display:block;font-size:10.5px;color:var(--muted);font-weight:600;margin-bottom:5px;}
+.metric-box input{width:100%;background:none;border:none;color:var(--text);font-size:14.5px;font-weight:700;padding:0;font-variant-numeric:tabular-nums;}
+.metric-box input::placeholder{color:var(--muted);font-weight:500;font-size:12.5px;}
+.field-full{margin-bottom:14px;}
+.field-full label{display:block;font-size:11px;color:var(--text2);font-weight:600;margin-bottom:6px;}
+.field-full textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:12.5px;padding:10px 12px;resize:vertical;min-height:72px;font-family:var(--font);line-height:1.55;}
+.field-full input[type=text],.field-full input[type=date]{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:12.5px;padding:8px 12px;}
+
+.callout{background:var(--surface2);border:1px solid var(--border-soft);border-left:2.5px solid var(--accent);border-radius:var(--radius-sm);padding:10px 13px;font-size:11.5px;color:var(--text2);margin-bottom:16px;}
+.callout.warn{border-left-color:var(--warning);}
+.callout b{color:var(--text);}
+
+.score-explain{display:grid;gap:1px;background:var(--border-soft);border:1px solid var(--border-soft);border-radius:var(--radius-sm);overflow:hidden;}
+.se-row{display:grid;grid-template-columns:1.6fr .7fr .7fr .9fr;gap:8px;background:var(--surface);padding:9px 12px;font-size:12px;align-items:center;}
+.se-row.head{background:var(--surface2);font-size:10.5px;color:var(--muted);font-weight:600;}
+.se-row .n{text-align:right;font-variant-numeric:tabular-nums;}
+
+.modal-overlay{position:fixed;inset:0;background:var(--overlay);z-index:100;display:flex;align-items:flex-start;justify-content:center;padding:8vh 20px 20px;overflow-y:auto;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);width:100%;max-width:560px;padding:22px;}
+.modal.wide{max-width:680px;}
+.modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.modal-title{font-size:15px;font-weight:700;}
+.modal-close{cursor:pointer;color:var(--muted);width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:6px;}
+.modal-close:hover{background:var(--elevated);}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.form-field label{display:block;font-size:11px;color:var(--text2);font-weight:600;margin-bottom:6px;}
+.form-field input,.form-field select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:12.5px;padding:8px 11px;}
+.modal-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--elevated);border:1px solid var(--border);padding:9px 16px;border-radius:20px;font-size:12px;z-index:200;box-shadow:0 8px 24px #00000055;}
+
+.caveat{font-size:10.5px;color:var(--muted);display:flex;align-items:center;gap:5px;margin-top:8px;}
+.caveat svg{width:11px;height:11px;flex:none;}
+
+.weight-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--border-soft);}
+.weight-row .wname{flex:1;font-size:12.5px;font-weight:500;}
+.weight-row input[type=number]{width:60px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12.5px;padding:5px 7px;text-align:right;}
+.weight-total{display:flex;justify-content:space-between;padding-top:10px;margin-top:4px;font-size:12.5px;font-weight:700;}
+.weight-total.bad{color:var(--negative);}
+.weight-total.ok{color:var(--positive);}
+
+.scroll-x{overflow-x:auto;}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
+@media(max-width:900px){.two-col{grid-template-columns:1fr;}}
+.sec-title{font-size:13px;font-weight:700;margin:22px 0 10px;}
+.sec-title:first-child{margin-top:0;}
+.hr{height:1px;background:var(--border-soft);margin:18px 0;}
+.muted{color:var(--muted);}
+.text2{color:var(--text2);}
+.demo-banner{background:var(--purple-soft);border:1px solid #3d3560;color:var(--purple);font-size:11.5px;padding:8px 14px;border-radius:var(--radius-sm);margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.update-banner{background:var(--accent-soft);border-bottom:1px solid var(--accent-dim);color:var(--text);font-size:12.5px;padding:9px 20px;display:flex;align-items:center;justify-content:center;gap:14px;position:sticky;top:0;z-index:25;}
+.update-banner b{font-weight:700;}
+.update-banner .btn{padding:5px 12px;font-size:11.5px;min-height:auto;}
+.update-banner .dismiss{cursor:pointer;color:var(--text2);width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:6px;}
+.update-banner .dismiss:hover{background:var(--elevated);}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* ============================================================
+   ICONS (inline svg, stroke-based, minimal)
+============================================================ */
+const ICONS = {
+  logo:'<svg viewBox="0 0 24 24" fill="none"><path d="M4 18V10M12 18V4M20 18v-6" stroke="white" stroke-width="2.3" stroke-linecap="round"/></svg>',
+  dashboard:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
+  stock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 17l5-6 4 3 6-8" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 6h4v4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  bond:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M8 14h3" stroke-linecap="round"/></svg>',
+  bondfund:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="8" height="6" rx="1.3"/><rect x="13" y="5" width="8" height="6" rx="1.3"/><rect x="3" y="13" width="8" height="6" rx="1.3"/><rect x="13" y="13" width="8" height="6" rx="1.3"/></svg>',
+  equityfund:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.3"/><path d="M12 3.7V12l6 3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  indexfund:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V9M10 19V5M16 19v-7M21 19H3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  star:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l2.7 5.9 6.3.7-4.7 4.4 1.3 6.3L12 17.2 6.4 20.3l1.3-6.3L3 9.6l6.3-.7z" stroke-linejoin="round"/></svg>',
+  clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2" stroke-linecap="round"/></svg>',
+  alert:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10.6 3.9L2.7 18a1.8 1.8 0 0 0 1.6 2.7h15.4a1.8 1.8 0 0 0 1.6-2.7L13.4 3.9a1.8 1.8 0 0 0-2.8 0z"/><path d="M12 9.5v4.2M12 16.8h.01" stroke-linecap="round"/></svg>',
+  framework:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h9" stroke-linecap="round"/></svg>',
+  settings:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15 1.65 1.65 0 0 0 3.17 14H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06A2 2 0 1 1 7.04 4.3l.06.06A1.65 1.65 0 0 0 8.92 4.7H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.3 9c.14.36.4.66.75.82.14.06.29.1.45.1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+  search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7.5"/><path d="M21 21l-4.3-4.3" stroke-linecap="round"/></svg>',
+  bell:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 8a6 6 0 1 1 12 0c0 5 2 6.5 2 6.5H4S6 13 6 8z" stroke-linejoin="round"/><path d="M9.5 19a2.5 2.5 0 0 0 5 0" stroke-linecap="round"/></svg>',
+  chevron:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  chevronL:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M11 5l-6 7 6 7M5 5l6 7-6 7" stroke-linecap="round" stroke-linejoin="round" opacity="0"/><path d="M15 5l-7 7 7 7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>',
+  x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg>',
+  info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 8v.01" stroke-linecap="round"/></svg>',
+  inbox:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12h5l2 3h4l2-3h5M5 5h14l2 7v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7l2-7z" stroke-linejoin="round"/></svg>',
+  moon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.8 6.8 0 0 0 10.5 10.5z" stroke-linejoin="round"/></svg>',
+  sun:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4.3"/><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" stroke-linecap="round"/></svg>',
+  github:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.5v-1.77c-2.78.62-3.37-1.37-3.37-1.37-.46-1.2-1.11-1.52-1.11-1.52-.9-.64.07-.63.07-.63 1 .07 1.53 1.05 1.53 1.05.9 1.57 2.34 1.12 2.91.85.09-.67.35-1.12.64-1.38-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.31.1-2.74 0 0 .84-.28 2.75 1.05a9.3 9.3 0 0 1 5 0c1.9-1.33 2.74-1.05 2.74-1.05.56 1.43.21 2.48.1 2.74.65.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.79-4.57 5.05.36.32.68.94.68 1.9v2.82c0 .28.18.61.69.5C19.14 20.6 22 16.77 22 12.25 22 6.58 17.52 2 12 2z"/></svg>',
+  download:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v13m0 0l-4.5-4.5M12 16l4.5-4.5M4 19.5h16" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  upload:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20V7m0 0l-4.5 4.5M12 7l4.5 4.5M4 19.5h16" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  clip:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21.4 11.3L12.7 20a4.5 4.5 0 1 1-6.4-6.4l8.4-8.4a3 3 0 1 1 4.2 4.2l-8.4 8.4a1.5 1.5 0 1 1-2.1-2.1l7.8-7.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2m3 0-.9 12.2A2 2 0 0 1 15.1 21H8.9a2 2 0 0 1-2-1.8L6 7" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 11v6M14 11v6" stroke-linecap="round"/></svg>',
+};
+function icon(name,cls){return `<span class="${cls||''}" style="display:inline-flex">${ICONS[name]||''}</span>`;}
+function backBtn(){ return STATE.ui.route.page!=='dashboard'? `<div class="back-btn" data-action="go-back">${icon('chevronL')} Back</div>` : ''; }
+function updateBannerHtml(){
+  return `<div class="update-banner">
+    <span>${icon('info')} <b>A new version of Keel is available.</b></span>
+    <div class="btn btn-primary" data-action="apply-update">Refresh now</div>
+    <div class="dismiss" data-action="dismiss-update-banner">${icon('x')}</div>
+  </div>`;
+}
+
+/* ============================================================
+   FRAMEWORK ENGINE - data model
+============================================================ */
+let CRIT_SEQ=0;
+function crit(name,type){ return {id:'c'+(++CRIT_SEQ), name, type:type||'score'}; }
+function cat(id,name,weight,names,tags){
+  return { id, name, weight, tags:tags||[], criteria:names.map(n=>crit(n)) };
+}
+function fw(key,label,unitLabel,categories,valuationFields,riskExtra){
+  return { key, label, unitLabel, categories, valuationFields:valuationFields||[], riskExtra:riskExtra||[] };
+}
+
+const FRAMEWORKS = {
+  stock: fw('stock','Individual Stock Framework','company',[
+    cat('bu','Business Understanding',10,['Business Model','Revenue Quality','Pricing Power','Customer Base','Operational Efficiency','Supply / Input Risk','Capital Requirements','Cash Generation Potential','Business Durability']),
+    cat('ind','Industry & Competitive Environment',8,['Industry Growth','Industry Profitability','Industry Competition','Barriers to Entry','Threat of Substitutes','Regulatory Environment','Cyclicality','Technological Disruption Risk','Market Share Position','Market Share Trend']),
+    cat('fp','Financial Performance',15,['Revenue Growth Quality','Profitability','Margin Trend','Cash Flow Quality','Earnings Quality','Return on Capital']),
+    cat('fs','Financial Strength',10,['Balance Sheet Strength','Debt Sustainability','Liquidity','Downturn Resilience','Refinancing Risk']),
+    cat('mgmt','Management & Capital Allocation',10,['Management Quality','Management Track Record','Capital Allocation','Reinvestment Quality','Acquisition Discipline','Dividend Policy','Share Buyback Discipline','Share Dilution','Management Incentives','Governance / Shareholder Alignment']),
+    cat('ca','Competitive Advantage',12,['Brand Strength','Cost Advantage','Network Effects','Switching Costs','Scale Advantage','Intellectual Property','Distribution Advantage','Advantage Reflected in Economics'],['valuation_adj']),
+    cat('val','Valuation',18,['Valuation Attractiveness','Expectations Embedded in Price'],['valuation']),
+    cat('risk','Risk',10,['Business Risk','Financial Risk','Competitive Risk','Management Risk','Regulatory Risk','Country Risk','Currency Risk','Technology / Disruption Risk','Customer Concentration Risk','Liquidity Risk','Valuation Risk'],['risk']),
+    cat('ret','Expected Return',4,['Expected Return Assessment']),
+    cat('fit','Portfolio Fit',3,['Diversification Contribution','Existing Exposure','Sector Concentration','Geographic Concentration','Currency Exposure','Position Size Suitability']),
+  ], ['Share Price','Market Cap','P/E','Forward P/E','EV/EBITDA','P/B','P/S','Price/FCF','FCF Yield','Dividend Yield']),
+
+  bond: fw('bond','Individual Bond Framework','bond',[
+    cat('iss','Issuer Analysis',12,['Issuer Financial Strength','Revenue / Income Stability','Cash Flow Strength','Liquidity Position','Debt Burden','Ability to Service Existing Debt','Refinancing Dependence','Historical Repayment Record','Overall Issuer Resilience']),
+    cat('terms','Bond Terms & Structure',8,['Bond Structure Quality']),
+    cat('credit','Credit Quality',20,['Probability of Default Assessment','Debt Sustainability','Interest Payment Capacity','Principal Repayment Capacity','Balance-Sheet Resilience','Refinancing Risk','Credit Trend','Overall Credit Quality'],['valuation_adj']),
+    cat('dur','Interest-Rate & Duration Risk',15,['Duration Risk','Interest-Rate Sensitivity','Reinvestment Risk','Maturity Suitability'],['risk']),
+    cat('yield','Yield & Expected Return',20,['Yield Attractiveness','Yield Compensation for Risk'],['valuation']),
+    cat('infl','Inflation & Currency Risk',10,['Inflation Protection','Real Return Resilience','Currency Risk','Currency Alignment'],['risk']),
+    cat('liq','Liquidity',5,['Secondary Market Liquidity','Ease of Selling','Bid-Ask Cost','Liquidity Suitability']),
+    cat('addrisk','Additional Bond Risks',5,['Default Risk','Credit Downgrade Risk','Call Risk','Political / Sovereign Risk','Regulatory Risk'],['risk']),
+    cat('fit','Portfolio Fit',5,['Diversification Contribution','Issuer Concentration','Duration Concentration','Credit Concentration','Maturity Match']),
+  ], ['Face Value','Purchase Price','Coupon Rate','Current Yield','Yield to Maturity','Duration','Years to Maturity','Credit Rating']),
+
+  bondfund: fw('bondfund','Bond Mutual Fund Framework','fund',[
+    cat('mandate','Fund Mandate & Structure',8,['Mandate Clarity','Strategy Suitability','Mandate Consistency','Transparency']),
+    cat('port','Portfolio Composition',15,['Diversification','Issuer Concentration','Geographic Diversification','Currency Diversification','Portfolio Quality','Portfolio Alignment With Mandate']),
+    cat('credit','Credit Quality',15,['Overall Credit Quality','Credit Diversification','Default Risk','Credit Quality Trend','Resilience of Underlying Issuers'],['valuation_adj']),
+    cat('dur','Interest-Rate & Duration Risk',15,['Duration Risk','Interest-Rate Sensitivity','Maturity Risk','Reinvestment Risk'],['risk']),
+    cat('yield','Yield & Return',12,['Yield Attractiveness','Distribution vs Total Return Clarity'],['valuation']),
+    cat('mgr','Fund Manager & Investment Process',10,['Manager Experience','Investment Process','Credit Analysis Process','Risk Management','Team Stability']),
+    cat('perf','Performance',8,['Long-Term Performance','Benchmark Performance','Risk-Adjusted Performance','Downside Behavior']),
+    cat('liq','Liquidity',5,['Investor Liquidity','Underlying Asset Liquidity','Redemption Resilience']),
+    cat('cost','Costs & Tax',5,['Cost Reasonableness','Fee Transparency']),
+    cat('infl','Inflation & Currency Risk',4,['Inflation Resilience','Currency Risk','Currency Diversification'],['risk']),
+    cat('addrisk','Additional Risks',3,['Concentration Risk','Manager Risk','Operational Risk'],['risk']),
+    cat('fit','Portfolio Fit',5,['Diversification Contribution','Credit Concentration','Duration Concentration','Liquidity Fit']),
+  ], ['NAV / Price','Fund Yield','Yield to Maturity (Portfolio)','Average Duration','Average Credit Rating','Distribution Yield','Expense Ratio','AUM']),
+
+  equityfund: fw('equityfund','Equity Mutual Fund Framework','fund',[
+    cat('mandate','Fund Mandate & Structure',8,['Mandate Clarity','Strategy Suitability','Mandate Consistency','Transparency']),
+    cat('port','Portfolio Composition',15,['Diversification','Concentration','Sector Diversification','Geographic Diversification','Market-Cap Diversification','Alignment With Fund Mandate']),
+    cat('strat','Investment Strategy',12,['Strategy Clarity','Strategy Coherence','Strategy Repeatability','Philosophy Consistency','Differentiation']),
+    cat('uq','Underlying Company Quality',12,['Business Quality','Profitability','Earnings Quality','Cash Generation','Competitive Advantages','Growth Quality']),
+    cat('mgr','Manager & Investment Process',15,['Manager Experience','Investment Process','Security Selection','Risk Management','Team Stability']),
+    cat('perf','Performance & Benchmark',15,['Long-Term Performance','Benchmark Performance','Risk-Adjusted Performance','Downside Management','Benchmark Appropriateness']),
+    cat('risk','Risk',10,['Market Risk','Concentration Risk','Sector Risk','Geographic Risk','Currency Risk','Small-Cap Risk','Manager Risk','Valuation Risk'],['risk']),
+    cat('cost','Costs & Tax',6,['Cost Reasonableness','Fee Transparency'],['valuation']),
+    cat('geo','Geographic & Currency Exposure',2,['Geographic Diversification','Currency Diversification','Currency Risk']),
+    cat('fit','Portfolio Fit',5,['Diversification Contribution','Existing Overlap','Sector Fit','Risk Fit','Expected Return Fit']),
+  ], ['NAV / Price','Portfolio P/E','Forward P/E','P/B','Dividend Yield','Expense Ratio','AUM','1Y Return','3Y Annualized Return']),
+
+  indexfund: fw('indexfund','Index Fund Framework','fund',[
+    cat('idx','Index Objective & Methodology',15,['Index Objective Clarity','Methodology Transparency','Methodology Simplicity','Suitability of Methodology','Index Suitability']),
+    cat('comp','Index Composition & Exposure',15,['Composition Transparency','Exposure Suitability']),
+    cat('div','Diversification & Concentration',10,['Company Diversification','Sector Diversification','Geographic Diversification','Concentration Suitability']),
+    cat('impl','Fund Structure & Implementation',10,['Implementation Quality','Structural Simplicity','Transparency','Replication Suitability'],['valuation_adj']),
+    cat('track','Tracking Quality',15,['Tracking Accuracy','Tracking Consistency','Transparency of Tracking Difference'],['valuation']),
+    cat('cost','Costs & Tax',12,['Cost Reasonableness','Fee Transparency'],['valuation']),
+    cat('risk','Risk',10,['Market Risk','Concentration Risk','Sector Risk','Geographic Risk','Currency Risk','Valuation Risk','Tracking Risk','Structural Risk'],['risk']),
+    cat('mkt','Underlying Market Characteristics',5,['Market Quality','Long-Term Growth Characteristics','Valuation Attractiveness','Economic Diversification']),
+    cat('geo','Currency & Geographic Exposure',3,['Geographic Fit','Currency Fit','Currency Diversification']),
+    cat('fit','Portfolio Fit',5,['Diversification Contribution','Existing Overlap','Risk Fit','Expected Return Fit','Portfolio Role Clarity']),
+  ], ['NAV / Price','Expense Ratio','Tracking Difference (1Y)','Number of Holdings','Top 10 Weight %','Index P/E','Dividend Yield','AUM']),
+};
+
+const TYPES = [
+  {key:'stock', label:'Individual Stocks', plural:'Stocks', icon:'stock', idLabel:'Ticker'},
+  {key:'bond', label:'Bonds', plural:'Bonds', icon:'bond', idLabel:'Issuer'},
+  {key:'bondfund', label:'Bond Funds', plural:'Bond Funds', icon:'bondfund', idLabel:'Fund'},
+  {key:'equityfund', label:'Equity Funds', plural:'Equity Funds', icon:'equityfund', idLabel:'Fund'},
+  {key:'indexfund', label:'Index Funds', plural:'Index Funds', icon:'indexfund', idLabel:'Index'},
+];
+function typeInfo(k){ return TYPES.find(t=>t.key===k); }
+
+const STATUSES = ['Draft','In Progress','Complete','Needs Review','Watching','Archived'];
+function statusClass(s){ return 'st-'+s.toLowerCase().replace(/\s/g,''); }
+
+/* ---- scoring profiles: generic reweight by tag ---- */
+function reweight(framework, boosts){
+  const base = framework.categories.map(c=>({id:c.id, w:c.weight, tags:c.tags}));
+  const boosted = base.map(c=>{
+    let factor=1;
+    (c.tags||[]).forEach(t=>{ if(boosts[t]) factor*=boosts[t]; });
+    return {id:c.id, w:c.weight*factor};
+  });
+  const sum = boosted.reduce((a,b)=>a+b.w,0);
+  const out={};
+  boosted.forEach(c=> out[c.id] = Math.round((c.w/sum)*1000)/10 );
+  return out;
+}
+function profilesFor(typeKey){
+  const f = FRAMEWORKS[typeKey];
+  const base = {}; f.categories.forEach(c=> base[c.id]=c.weight);
+  return [
+    {id:'default', name:'Default', weights:base},
+    {id:'risk', name:'Risk Focus', weights: reweight(f,{risk:2.2})},
+    {id:'value', name:'Value / Cost Focus', weights: reweight(f,{valuation:1.9})},
+    {id:'balanced', name:'Quality Focus', weights: reweight(f,{valuation_adj:1.6})},
+  ];
+}
+
+/* ============================================================
+   SCORING HELPERS
+============================================================ */
+function score100(s){ return s==null? null : Math.round(s*20); }
+function categoryAssessments(analysis, catId){ return (analysis.categories[catId] && analysis.categories[catId].criteria) || {}; }
+function categoryScore(analysis, catDef){
+  const a = categoryAssessments(analysis, catDef.id);
+  const scores = catDef.criteria.map(c=> a[c.id] && a[c.id].score).filter(s=>s!=null);
+  if(!scores.length) return null;
+  return scores.reduce((x,y)=>x+y,0)/scores.length;
+}
+function categoryCompletion(analysis, catDef){
+  const a = categoryAssessments(analysis, catDef.id);
+  const total = catDef.criteria.length;
+  const done = catDef.criteria.filter(c=> a[c.id] && a[c.id].score!=null).length;
+  return total? Math.round(done/total*100) : 0;
+}
+function overallCompletion(analysis, framework){
+  let total=0, done=0;
+  framework.categories.forEach(c=>{
+    c.criteria.forEach(cr=>{ total++; const a=categoryAssessments(analysis,c.id); if(a[cr.id]&&a[cr.id].score!=null) done++; });
+  });
+  return total? Math.round(done/total*100) : 0;
+}
+function overallScore(analysis, framework, weights){
+  let total=0, wsum=0;
+  framework.categories.forEach(c=>{
+    const s = categoryScore(analysis,c);
+    const w = (weights&&weights[c.id]!=null)? weights[c.id] : c.weight;
+    if(s!=null){ total += score100(s)*w; wsum+=w; }
+  });
+  if(wsum===0) return null;
+  return Math.round(total/wsum);
+}
+function scoreBand(v){ if(v==null) return 's-neu'; if(v>=75) return 's-high'; if(v>=55) return 's-mid'; return 's-low'; }
+function avgCatScore100(inv, cats){
+  const scores = cats.map(c=>categoryScore(inv.analysis,c)).filter(s=>s!=null);
+  if(!scores.length) return null;
+  return Math.round(score100(scores.reduce((a,b)=>a+b,0)/scores.length));
+}
+function bucketScores(inv){
+  const f = FRAMEWORKS[inv.type];
+  const valCats = f.categories.filter(c=>c.tags.includes('valuation'));
+  const riskCats = f.categories.filter(c=>c.tags.includes('risk'));
+  const qualCats = f.categories.filter(c=>!c.tags.includes('valuation') && !c.tags.includes('risk'));
+  return { quality: avgCatScore100(inv,qualCats), valuation: avgCatScore100(inv,valCats), risk: avgCatScore100(inv,riskCats) };
+}
+function riskBucketLabel(v){ if(v==null) return null; if(v>=75) return {label:'Low', cls:'s-high'}; if(v>=50) return {label:'Medium', cls:'s-mid'}; return {label:'High', cls:'s-low'}; }
+function riskPill(v){ const b=riskBucketLabel(v); return b? `<span class="pill ${b.cls}">${b.label}</span>` : `<span class="muted">-</span>`; }
+function scorePill(v){ return v!=null? `<span class="pill ${scoreBand(v)}">${v}</span>` : `<span class="muted">-</span>`; }
+function riskLabel(s){ if(s==null) return '-'; return ['','Very High','High','Moderate','Low','Very Low'][Math.round(s)]; }
+function fmtDate(ts){ if(!ts) return '-'; const d=new Date(ts); return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}); }
+function fmtDateTime(ts){ const d=new Date(ts); return d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' • '+d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}); }
+function timeAgo(ts){
+  const s=(Date.now()-ts)/1000;
+  if(s<60) return 'just now';
+  if(s<3600) return Math.floor(s/60)+'m ago';
+  if(s<86400) return Math.floor(s/3600)+'h ago';
+  const d=Math.floor(s/86400);
+  if(d<30) return d+'d ago';
+  return fmtDate(ts);
+}
+function initials(name){ return (name||'?').split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
+
+/* ============================================================
+   STATE
+============================================================ */
+let STATE = null;
+const LS_KEY = 'keel_invresearch_v1';
+const APP_VERSION = 'v1'; // keep in sync with CACHE_VERSION suffix in service-worker.js
+const LS_KEY_LEGACY = 'ledger_invresearch_v1';
+
+function newAnalysis(){ return { categories:{}, valuation:{}, riskNotes:{keyRisks:'',lossScenarios:'',whatWouldChangeMind:''}, thesis:{}, versions:[] }; }
+
+function makeInvestment(o){
+  const now = Date.now();
+  return {
+    id:'inv_'+Math.random().toString(36).slice(2,10),
+    type:o.type, name:o.name, identifier:o.identifier||'', country:o.country||'', sector:o.sector||'',
+    currency:o.currency||'USD', description:o.description||'',
+    status:o.status||'Draft', watchlist:!!o.watchlist, reviewDate:o.reviewDate||'',
+    createdAt:now, updatedAt:now, frameworkVersion:1,
+    analysis:o.analysis||newAnalysis(),
+  };
+}
+
+function seedAssess(score,confidence,reasoning){ return {score,confidence,reasoning:reasoning||'',evidence:[]}; }
+
+function buildSeed(){
+  const inv=[];
+  // Stock 1 - Atlas Energy (fairly complete)
+  const a1 = newAnalysis();
+  const sf = FRAMEWORKS.stock;
+  const vals = {bu:4,ind:4,fp:4,fs:4,mgmt:4,ca:4,val:3,risk:3,ret:4,fit:4};
+  sf.categories.forEach(c=>{ a1.categories[c.id]={criteria:{},notes:''};
+    c.criteria.forEach((cr,i)=>{ if(i< c.criteria.length-1 || c.id!=='fit') a1.categories[c.id].criteria[cr.id]=seedAssess(vals[c.id], 4, 'Preliminary judgment based on available filings; to be revisited with updated financials.'); });
+  });
+  a1.valuation = {'Share Price':'64.20','Market Cap':'18.4B','P/E':'14.2','Forward P/E':'12.8','EV/EBITDA':'7.1','FCF Yield':'6.4%','Dividend Yield':'2.1%'};
+  a1.riskNotes = {keyRisks:'Commodity price exposure; regulatory shifts in core operating region.', lossScenarios:'Sustained energy price collapse combined with balance-sheet stress.', whatWouldChangeMind:'Evidence of structurally lower margins or loss of key supply contracts.'};
+  a1.thesis = {thesis:'Diversified energy producer trading below intrinsic value with improving capital discipline.', strengths:'Disciplined capital allocation; strengthening balance sheet.', concerns:'Commodity cyclicality; regulatory overhang.', reviewDate:'2026-12-01'};
+  a1.versions=[{ts:Date.now()-1000*60*60*24*40, overallScore:78, note:'Initial analysis'}];
+  inv.push(makeInvestment({type:'stock', name:'Atlas Energy', identifier:'ATLS', country:'United States', sector:'Energy', currency:'USD', status:'Complete', analysis:a1, description:'Diversified energy producer focused on sustainable production and long-term value creation.'}));
+
+  // Stock 2 - Northstar Systems (in progress)
+  const a2 = newAnalysis();
+  ['bu','ind','fp'].forEach(id=>{ const c=sf.categories.find(x=>x.id===id); a2.categories[id]={criteria:{},notes:''};
+    c.criteria.forEach(cr=> a2.categories[id].criteria[cr.id]=seedAssess(4,3,'')); });
+  a2.valuation={'Share Price':'112.40','P/E':'22.6'};
+  inv.push(makeInvestment({type:'stock', name:'Northstar Systems', identifier:'NST', country:'United States', sector:'Technology', currency:'USD', status:'In Progress', analysis:a2, description:'Enterprise software platform with recurring revenue base.'}));
+
+  // Stock 3 - Summit Healthcare (needs review, watchlist)
+  const a3 = newAnalysis();
+  const c3=sf.categories.find(x=>x.id==='bu'); a3.categories.bu={criteria:{}}; c3.criteria.forEach(cr=>a3.categories.bu.criteria[cr.id]=seedAssess(3,2,''));
+  inv.push(makeInvestment({type:'stock', name:'Summit Healthcare', identifier:'SMT', country:'United States', sector:'Healthcare', currency:'USD', status:'Needs Review', watchlist:true, analysis:a3, reviewDate:'2026-09-18'}));
+
+  // Bond - Ridgeway Materials
+  const ab = newAnalysis(); const bf=FRAMEWORKS.bond;
+  bf.categories.forEach(c=>{ ab.categories[c.id]={criteria:{}}; c.criteria.forEach(cr=> ab.categories[c.id].criteria[cr.id]=seedAssess(4,3,'')); });
+  ab.valuation={'Face Value':'1000','Purchase Price':'974','Coupon Rate':'6.25%','Current Yield':'6.4%','Yield to Maturity':'7.1%','Years to Maturity':'6.4'};
+  inv.push(makeInvestment({type:'bond', name:'Ridgeway Materials 2032', identifier:'Ridgeway Materials', country:'United States', sector:'Corporate', currency:'USD', status:'Complete', analysis:ab, description:'Senior unsecured corporate bond, industrial materials issuer.'}));
+
+  // Bond Fund
+  const abf = newAnalysis(); const bff=FRAMEWORKS.bondfund;
+  ['mandate','port','credit','dur','yield'].forEach(id=>{ const c=bff.categories.find(x=>x.id===id); abf.categories[id]={criteria:{}}; c.criteria.forEach(cr=> abf.categories[id].criteria[cr.id]=seedAssess(3,3,'')); });
+  abf.valuation={'Average Duration':'5.1','Average Credit Rating':'A-','Fund Yield':'5.8%','Expense Ratio':'0.42%'};
+  inv.push(makeInvestment({type:'bondfund', name:'Meridian Core Bond Fund', identifier:'Meridian Core Bond Fund', country:'Global', sector:'Diversified', currency:'USD', status:'In Progress', analysis:abf}));
+
+  // Equity Fund
+  const aef = newAnalysis(); const eff=FRAMEWORKS.equityfund;
+  ['mandate','port','strat'].forEach(id=>{ const c=eff.categories.find(x=>x.id===id); aef.categories[id]={criteria:{}}; c.criteria.forEach(cr=> aef.categories[id].criteria[cr.id]=seedAssess(4,3,'')); });
+  aef.valuation={'Portfolio P/E':'19.4','Expense Ratio':'0.68%','3Y Annualized Return':'11.2%'};
+  inv.push(makeInvestment({type:'equityfund', name:'Vantage Global Quality Fund', identifier:'Vantage Global Quality Fund', country:'Global', sector:'Multi-Sector', currency:'USD', status:'Draft', analysis:aef}));
+
+  // Index Fund
+  const aif = newAnalysis(); const iff=FRAMEWORKS.indexfund;
+  ['idx','comp','div'].forEach(id=>{ const c=iff.categories.find(x=>x.id===id); aif.categories[id]={criteria:{}}; c.criteria.forEach(cr=> aif.categories[id].criteria[cr.id]=seedAssess(4,4,'')); });
+  aif.valuation={'Expense Ratio':'0.05%','Tracking Difference (1Y)':'-0.04%','Number of Holdings':'503','Index P/E':'21.3'};
+  inv.push(makeInvestment({type:'indexfund', name:'Broad Market Index Fund', identifier:'Total Market Index', country:'United States', sector:'Broad Market', currency:'USD', status:'Complete', analysis:aif}));
+
+  return inv;
+}
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(raw) return JSON.parse(raw);
+    const legacy = localStorage.getItem(LS_KEY_LEGACY);
+    if(legacy){ localStorage.setItem(LS_KEY, legacy); localStorage.removeItem(LS_KEY_LEGACY); return JSON.parse(legacy); }
+  }catch(e){}
+  return null;
+}
+function persist(){
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(STATE)); }catch(e){}
+}
+function initState(){
+  const loaded = loadState();
+  if(loaded){
+    STATE = loaded;
+    STATE.ui.theme = STATE.ui.theme || 'dark';
+    STATE.ui.avatarMenuOpen = !!STATE.ui.avatarMenuOpen;
+    STATE.ui.searchOpen = !!STATE.ui.searchOpen;
+    if(STATE.ui.autoRefreshOnUpdate==null) STATE.ui.autoRefreshOnUpdate = false;
+    STATE.ui.updateBannerDismissed = false;
+    STATE.github = STATE.github || { connected:false, repo:'', branch:'main', token:'', lastSync:null, autoSync:true };
+    if(STATE.github.autoSync==null) STATE.github.autoSync = true;
+    return;
+  }
+  STATE = {
+    investments: buildSeed(),
+    frameworkOverrides: {}, // typeKey -> {categoryId: weight}
+    ui: {
+      route:{page:'dashboard', type:null, id:null, tab:'summary'},
+      sidebarCollapsed:false,
+      search:'',
+      filters:{status:'all', q:''},
+      rankProfile:{}, // typeKey -> profileId
+      openCats:{}, // investmentId -> {catId:true}
+      modal:null, // {type:'new'} | {type:'evidence', ...} | {type:'scoreExplain', id}
+      toast:null,
+      savingFlash:false,
+      isDemo:true,
+      theme:'dark',
+      history:[],
+      avatarMenuOpen:false,
+      searchOpen:false,
+      autoRefreshOnUpdate:false,
+      updateBannerDismissed:false,
+    },
+    github: { connected:false, repo:'', branch:'main', token:'', lastSync:null, autoSync:true },
+  };
+  persist();
+}
+
+function currentFrameworkWeights(typeKey){
+  const f = FRAMEWORKS[typeKey];
+  const override = STATE.frameworkOverrides[typeKey];
+  const w={}; f.categories.forEach(c=> w[c.id] = (override && override[c.id]!=null)? override[c.id] : c.weight);
+  return w;
+}
+
+function findInv(id){ return STATE.investments.find(i=>i.id===id); }
+function invsOfType(t){ return STATE.investments.filter(i=>i.type===t); }
+
+function touch(inv){ inv.updatedAt = Date.now(); scheduleAutoSync(); }
+let autoSyncTimer = null;
+function scheduleAutoSync(){
+  if(!STATE.github || !STATE.github.connected || !STATE.github.autoSync) return;
+  clearTimeout(autoSyncTimer);
+  autoSyncTimer = setTimeout(function(){ githubPush({silent:true}); }, 4000);
+}
+function flashSave(){ STATE.ui.savingFlash=true; render(); setTimeout(()=>{ STATE.ui.savingFlash=false; render(); }, 550); }
+
+/* ============================================================
+   RENDER - root dispatcher
+============================================================ */
+const root = document.getElementById('app');
+
+function render(){
+  persist();
+  document.documentElement.setAttribute('data-theme', STATE.ui.theme==='light'?'light':'dark');
+  root.innerHTML = shellHtml();
+  bindEvents();
+}
+
+function nav(page,type,id,tab){
+  STATE.ui.route = {page, type:type||null, id:id||null, tab:tab||'summary'};
+  STATE.ui.avatarMenuOpen=false; STATE.ui.searchOpen=false;
+  render();
+  window.scrollTo(0,0);
+}
+function parentRoute(route){
+  if(route.page==='workspace') return {page:'analyses', type:route.type, id:null, tab:'summary'};
+  if((route.page==='analyses' || route.page==='rankings' || route.page==='framework') && route.type) return {page:'type', type:route.type, id:null, tab:'summary'};
+  return {page:'dashboard', type:null, id:null, tab:'summary'};
+}
+function goBack(){
+  STATE.ui.route = parentRoute(STATE.ui.route);
+  render();
+  window.scrollTo(0,0);
+}
+
+/* ---------- shell ---------- */
+function shellHtml(){
+  return `
+  <div class="sidebar ${STATE.ui.sidebarCollapsed?'collapsed':''}">
+    <div class="brand" data-action="nav-dashboard">
+      <div class="brand-mark">${ICONS.logo}</div>
+      <div class="brand-text"><div class="t1">Keel</div><div class="t2">Research · Evaluate · Decide</div></div>
+    </div>
+    <div class="side-scroll">
+      <div class="side-group">Overview</div>
+      ${navItem('dashboard','Dashboard','dashboard')}
+      <div class="side-group">Research</div>
+      ${TYPES.map(t=> navItem('type:'+t.key, t.label, t.icon, invsOfType(t.key).length)).join('')}
+      <div class="side-group">Watchlist</div>
+      ${navItem('watchlist:all','All Watchlist','star', STATE.investments.filter(i=>i.watchlist).length)}
+      ${navItem('watchlist:review','Needs Review','alert', STATE.investments.filter(i=>i.status==='Needs Review').length)}
+      <div class="side-group">Frameworks</div>
+      ${TYPES.map(t=> navItem('framework:'+t.key, t.label+' Framework', 'framework')).join('')}
+      <div class="side-group">Settings</div>
+      ${navItem('settings','Settings','settings')}
+    </div>
+    <div class="side-foot">
+      <div class="collapse-btn" data-action="toggle-sidebar">${icon('chevronL')} <span class="side-label">Collapse</span></div>
+    </div>
+  </div>
+  <div class="main">
+    ${updateAvailable && !STATE.ui.updateBannerDismissed ? updateBannerHtml() : ''}
+    <div class="topbar">
+      <div class="search-wrap">
+        <div class="search">
+          ${icon('search')}
+          <input id="global-search-input" placeholder="Search companies, bonds, funds, frameworks..." value="${escAttr(STATE.ui.search)}">
+        </div>
+        <div id="search-results-container"></div>
+      </div>
+      <div class="topbar-right">
+        <div class="save-indicator"><span class="save-dot ${STATE.ui.savingFlash?'saving':''}"></span>${STATE.ui.savingFlash?'Saving…':'Saved'}</div>
+        <div class="icon-btn" data-action="toggle-theme" title="Toggle theme">${icon(STATE.ui.theme==='light'?'moon':'sun')}</div>
+        <div class="icon-btn">${icon('bell')}</div>
+        <div class="avatar-wrap">
+          <div class="avatar" data-action="toggle-avatar-menu">${initials('You')}</div>
+          ${STATE.ui.avatarMenuOpen? avatarMenuHtml() : ''}
+        </div>
+      </div>
+    </div>
+    <div class="content">${pageHtml()}</div>
+  </div>
+  ${STATE.ui.modal? modalHtml() : ''}
+  ${STATE.ui.toast? `<div class="toast">${STATE.ui.toast}</div>` : ''}
+  `;
+}
+function navItem(routeKey,label,iconName,badge){
+  const r = STATE.ui.route;
+  let active=false;
+  if(routeKey==='dashboard') active = r.page==='dashboard';
+  else if(routeKey.startsWith('type:')) active = r.page==='type' && r.type===routeKey.split(':')[1];
+  else if(routeKey==='watchlist:all') active = r.page==='watchlist' && r.tab!=='review';
+  else if(routeKey==='watchlist:review') active = r.page==='watchlist' && r.tab==='review';
+  else if(routeKey.startsWith('framework:')) active = r.page==='framework' && r.type===routeKey.split(':')[1];
+  else if(routeKey==='settings') active = r.page==='settings';
+  return `<div class="nav-item ${active?'active':''}" data-action="goto:${routeKey}">${icon(iconName)}<span class="side-label">${label}</span>${badge?`<span class="nav-badge">${badge}</span>`:''}</div>`;
+}
+
+function avatarMenuHtml(){
+  return `<div class="avatar-menu">
+    <div class="am-head">You · local workspace</div>
+    <div class="am-item" data-action="goto:settings"><span>Settings</span></div>
+    <div class="am-item" data-action="toggle-theme"><span>${STATE.ui.theme==='light'?'Light theme':'Dark theme'}</span><div class="theme-switch ${STATE.ui.theme==='light'?'on':''}"><div class="knob"></div></div></div>
+  </div>`;
+}
+
+function pageHtml(){
+  const r = STATE.ui.route;
+  if(r.page==='dashboard') return dashboardPage();
+  if(r.page==='type') return typeOverviewPage(r.type);
+  if(r.page==='analyses') return analysesPage(r.type);
+  if(r.page==='rankings') return rankingsPage(r.type);
+  if(r.page==='workspace') return workspacePage(r.id, r.tab);
+  if(r.page==='watchlist') return watchlistPage(r.tab);
+  if(r.page==='framework') return frameworkPage(r.type);
+  if(r.page==='settings') return settingsPage();
+  return dashboardPage();
+}
+
+/* ============================================================
+   DASHBOARD
+============================================================ */
+function dashboardPage(){
+  const all = STATE.investments;
+  const analyzed = all.length;
+  const inProgress = all.filter(i=>i.status==='In Progress'||i.status==='Draft').length;
+  const watch = all.filter(i=>i.watchlist).length;
+  const review = all.filter(i=>i.status==='Needs Review').length;
+
+  const scored = all.map(i=>({inv:i, score: overallScore(i.analysis, FRAMEWORKS[i.type], currentFrameworkWeights(i.type))})).filter(x=>x.score!=null);
+  const topRated = [...scored].sort((a,b)=>b.score-a.score).slice(0,3);
+  const recent = [...all].sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,5);
+  const needsAttn = all.filter(i=>i.status==='Needs Review' || overallCompletion(i.analysis,FRAMEWORKS[i.type])<100 && i.status!=='Draft').slice(0,4);
+
+  const buckets=[0,0,0,0,0]; // <60,60-69,70-79,80-89,90-100
+  scored.forEach(s=>{ const v=s.score; const idx = v<60?0: v<70?1: v<80?2: v<90?3:4; buckets[idx]++; });
+  const maxB = Math.max(1,...buckets);
+  const bLabels=['<60','60–69','70–79','80–89','90–100'];
+
+  return `
+  <div class="page-head">
+    <div><div class="page-title">Dashboard</div><div class="page-sub">A summary of your research activity across every investment type.</div></div>
+  </div>
+  <div class="grid grid-4" style="margin-bottom:14px">
+    ${kpiCard('dashboard', analyzed, 'Investments Researched', 'accent')}
+    ${kpiCard('clock', inProgress, 'Analyses In Progress', 'warning')}
+    ${kpiCard('star', watch, 'On Watchlist', 'purple')}
+    ${kpiCard('alert', review, 'Needs Review', 'negative')}
+  </div>
+  <div class="grid grid-3" style="margin-bottom:14px">
+    <div class="card">
+      <div class="card-head"><div class="card-title">Top 3 Research Scores</div><div class="card-link" data-action="goto:type:${topRated[0]?topRated[0].inv.type:'stock'}">View all ${icon('chevron')}</div></div>
+      ${topRated.length? tableTopRated(topRated) : emptyState('inbox','No scored analyses yet','Start a new analysis from any Research section to see it ranked here.')}
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">Research Score Distribution</div></div>
+      <div class="bar-chart">
+        ${buckets.map((v,i)=>`<div class="bar-col"><div class="bar-pct">${v||''}</div><div class="bar" style="height:${Math.max(4,v/maxB*88)}px"></div><div class="bar-lbl">${bLabels[i]}</div></div>`).join('')}
+      </div>
+      <div class="muted" style="font-size:11px;margin-top:6px">Based on ${scored.length} scored ${scored.length===1?'analysis':'analyses'}.</div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">Needs Attention</div></div>
+      ${needsAttn.length? needsAttn.map(i=>attnRow(i)).join('') : emptyState('info','Nothing needs attention','Analyses needing review or completion will show up here.')}
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><div class="card-title">Recently Updated</div></div>
+    ${recent.length? recent.map(i=>recentRow(i)).join('') : emptyState('clock','No activity yet','')}
+  </div>
+  `;
+}
+function kpiCard(iconName,val,lbl,tone){
+  const bg = tone==='accent'?'var(--accent-soft)':tone==='warning'?'var(--warning-soft)':tone==='purple'?'var(--purple-soft)':'var(--negative-soft)';
+  const fg = tone==='accent'?'var(--accent)':tone==='warning'?'var(--warning)':tone==='purple'?'var(--purple)':'var(--negative)';
+  return `<div class="card kpi"><div class="kpi-icon" style="background:${bg};color:${fg}">${icon(iconName)}</div><div><div class="kpi-val num">${val}</div><div class="kpi-lbl">${lbl}</div></div></div>`;
+}
+function tableTopRated(rows){
+  return `<div class="table-wrap"><table><thead><tr><th>#</th><th>Investment</th><th class="num">Overall</th><th class="num">Quality</th><th class="num">Valuation</th><th>Risk</th><th>Status</th></tr></thead><tbody>
+  ${rows.map((r,idx)=>{ const b=bucketScores(r.inv); return `<tr data-action="open:${r.inv.id}"><td class="muted">${idx+1}</td><td><div class="row-name"><div class="row-avatar">${initials(r.inv.name)}</div><div><div class="row-main">${esc(r.inv.name)}</div><div class="row-sub">${esc(r.inv.identifier)}</div></div></div></td><td class="num">${scorePill(r.score)}</td><td class="num muted">${b.quality!=null?b.quality:'-'}</td><td class="num muted">${b.valuation!=null?b.valuation:'-'}</td><td>${riskPill(b.risk)}</td><td>${statusBadge(r.inv.status)}</td></tr>`; }).join('')}
+  </tbody></table></div>`;
+}
+function attnRow(i){
+  const comp = overallCompletion(i.analysis, FRAMEWORKS[i.type]);
+  const reason = i.status==='Needs Review' ? 'Marked needs review' : `Analysis ${comp}% complete`;
+  return `<div class="attn-row" data-action="open:${i.id}" style="cursor:pointer"><span class="dot-warn"></span><div class="list-main"><div class="list-title">${esc(i.name)}</div><div class="list-sub" style="color:var(--warning)">${reason}</div></div></div>`;
+}
+function recentRow(i){
+  return `<div class="list-row" data-action="open:${i.id}" style="cursor:pointer"><div class="list-avatar">${initials(i.name)}</div><div class="list-main"><div class="list-title">${esc(i.name)}</div><div class="list-sub">${esc(i.identifier)}</div></div><div class="list-time">${timeAgo(i.updatedAt)}</div></div>`;
+}
+function emptyState(iconName,title,sub,actionHtml){
+  return `<div class="empty-state">${icon(iconName)}<div class="empty-title">${title}</div><div class="empty-sub">${sub||''}</div>${actionHtml||''}</div>`;
+}
+
+/* ============================================================
+   TYPE OVERVIEW
+============================================================ */
+function typeOverviewPage(typeKey){
+  const t = typeInfo(typeKey);
+  const list = invsOfType(typeKey);
+  const scored = list.map(i=>({inv:i, score: overallScore(i.analysis, FRAMEWORKS[typeKey], currentFrameworkWeights(typeKey))}));
+  const analyzed = list.length;
+  const watch = list.filter(i=>i.watchlist).length;
+  const review = list.filter(i=>i.status==='Needs Review').length;
+  const recent = [...list].sort((a,b)=>b.updatedAt-a.updatedAt)[0];
+
+  const top = [...scored].filter(s=>s.score!=null).sort((a,b)=>b.score-a.score).slice(0,3);
+  const attn = list.filter(i=>i.status==='Needs Review').slice(0,4);
+  const recentList = [...list].sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,4);
+
+  return `
+  <div class="page-head">
+    <div><div class="page-title">${t.label}</div><div class="page-sub">${overviewCopy(typeKey)}</div></div>
+    <div class="head-meta"><span class="lbl">Last updated</span>${recent?fmtDateTime(recent.updatedAt):'-'}</div>
+  </div>
+  ${tabsRow('type', typeKey, 'overview')}
+  <div class="grid grid-4" style="margin-bottom:14px">
+    ${kpiCard(t.icon, analyzed, `${t.plural} Analyzed`, 'accent')}
+    ${kpiCard('star', watch, 'On Watchlist', 'purple')}
+    ${kpiCard('alert', review, 'Need Review', 'negative')}
+    ${kpiCard('clock', list.filter(i=>i.status==='In Progress').length, 'In Progress', 'warning')}
+  </div>
+  <div class="grid grid-3" style="margin-bottom:14px">
+    <div class="card">
+      <div class="card-head"><div class="card-title">Top 3 Rated</div><div class="card-link" data-action="goto:analyses:${typeKey}">View all ${icon('chevron')}</div></div>
+      ${top.length? tableTopRated(top) : emptyState('inbox',`No ${t.plural.toLowerCase()} analyzed yet`,'Create your first analysis using the framework below.', `<div class="btn btn-primary btn-sm" data-action="new-analysis:${typeKey}" style="display:inline-flex;margin:0 auto">${icon('plus')} New Analysis</div>`)}
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">Score Distribution</div></div>
+      ${scoreDist(scored)}
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">Needs Attention</div></div>
+      ${attn.length? attn.map(i=>attnRow(i)).join('') : emptyState('info','All clear','')}
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-head"><div class="card-title">Recently Updated</div></div>
+    ${recentList.length? recentList.map(i=>recentRow(i)).join('') : emptyState('clock','No activity yet','')}
+  </div>
+  <div class="card">
+    <div class="card-head"><div class="card-title">Explore an Analysis</div><div class="btn btn-primary btn-sm" data-action="new-analysis:${typeKey}">${icon('plus')} New Analysis</div></div>
+    ${(top[0]&&findInv(top[0].inv.id)) || recentList[0]? exploreCard((top[0]&&findInv(top[0].inv.id)) || recentList[0]) : emptyState('inbox','Nothing to explore yet','Create a new analysis to get started.')}
+  </div>
+  `;
+}
+function overviewCopy(k){
+  return {
+    stock:'Research and analyze individual companies using a structured framework.',
+    bond:'Evaluate individual debt instruments: issuer strength, terms, credit quality and yield.',
+    bondfund:'Evaluate portfolios of bonds: composition, credit quality, duration and manager process.',
+    equityfund:'Evaluate portfolios of companies: strategy, holdings quality, manager process and cost.',
+    indexfund:'Evaluate index exposure and fund implementation quality separately.',
+  }[k];
+}
+function scoreDist(scored){
+  const s = scored.filter(x=>x.score!=null);
+  if(!s.length) return emptyState('inbox','No scores yet','');
+  const buckets=[0,0,0,0,0];
+  s.forEach(x=>{ const v=x.score; const idx=v<60?0:v<70?1:v<80?2:v<90?3:4; buckets[idx]++; });
+  const maxB=Math.max(1,...buckets); const bl=['<60','60–69','70–79','80–89','90–100'];
+  return `<div class="bar-chart">${buckets.map((v,i)=>`<div class="bar-col"><div class="bar-pct">${v||''}</div><div class="bar" style="height:${Math.max(4,v/maxB*88)}px"></div><div class="bar-lbl">${bl[i]}</div></div>`).join('')}</div><div class="muted" style="font-size:11px;margin-top:6px">Based on ${s.length} scored ${s.length===1?'analysis':'analyses'}.</div>`;
+}
+function exploreCard(inv){
+  const f = FRAMEWORKS[inv.type];
+  const w = currentFrameworkWeights(inv.type);
+  const os = overallScore(inv.analysis, f, w);
+  const cats = f.categories.map(c=>({c, s:categoryScore(inv.analysis,c)}));
+  const tabs = [
+    {id:'summary',label:'Summary'},{id:'analysis',label:'Analysis'},{id:'valuation',label:'Valuation'},
+    {id:'risk',label:'Risk'},{id:'thesis',label:'Thesis'},{id:'history',label:'History'},
+  ];
+  return `<div class="grid grid-2" style="align-items:stretch">
+    <div style="display:flex;gap:14px;align-items:flex-start">
+      <div class="row-avatar" style="width:42px;height:42px;font-size:14px;flex:none">${initials(inv.name)}</div>
+      <div>
+        <div style="font-weight:700;font-size:15px">${esc(inv.name)}</div>
+        <div class="muted" style="font-size:11.5px;margin-bottom:10px">${esc(inv.identifier)}${inv.sector?' · '+esc(inv.sector):''}</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:16px">${esc(inv.description||'No description yet.')}</div>
+        <div class="btn btn-ghost btn-sm" data-action="open:${inv.id}">View Full Analysis ${icon('chevron')}</div>
+      </div>
+    </div>
+    <div style="border:1px solid var(--border-soft);border-radius:var(--radius);overflow:hidden">
+      <div style="display:flex;gap:20px;padding:10px 16px;border-bottom:1px solid var(--border-soft);overflow-x:auto">
+        ${tabs.map(t=>`<span data-action="goto:open:${inv.id}:${t.id}" style="font-size:11.5px;font-weight:600;white-space:nowrap;cursor:pointer;padding-bottom:9px;margin-bottom:-10px;border-bottom:2px solid ${t.id==='summary'?'var(--accent)':'transparent'};color:${t.id==='summary'?'var(--text)':'var(--muted)'}">${t.label}</span>`).join('')}
+      </div>
+      <div style="padding:16px;cursor:pointer" data-action="open:${inv.id}">
+        <div class="muted" style="font-size:11px;font-weight:600;margin-bottom:10px">Overall Score</div>
+        <div style="display:flex;gap:18px;align-items:center">
+          ${radial(os)}
+          <div style="flex:1;min-width:0">
+            ${cats.map(x=>`<div style="display:flex;align-items:center;gap:8px;padding:3px 0">
+              <span style="width:6px;height:6px;border-radius:50%;background:${x.s!=null?catDotColor(x.c.id):'var(--muted)'};flex:none"></span>
+              <span style="flex:1;font-size:11.5px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${x.c.name}</span>
+              <span class="num" style="font-size:12px;font-weight:600">${x.s!=null?score100(x.s):'-'}</span>
+            </div>`).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+function statusBadge(s){ return `<span class="status-badge ${statusClass(s)}">${s}</span>`; }
+
+function tabsRow(mode, typeKey, active){
+  const tabs = [
+    {id:'overview', label:'Overview', go:`goto:type:${typeKey}`},
+    {id:'analyses', label:'Analyses', go:`goto:analyses:${typeKey}`},
+    {id:'rankings', label:'Rankings', go:`goto:rankings:${typeKey}`},
+    {id:'watchlist', label:'Watchlist', go:`goto:watchlist-type:${typeKey}`},
+    {id:'framework', label:'Framework', go:`goto:framework:${typeKey}`},
+  ];
+  return `<div class="tabs">${tabs.map(t=>`<div class="tab ${t.id===active?'active':''}" data-action="${t.go}">${t.label}</div>`).join('')}</div>`;
+}
+
+/* ============================================================
+   ANALYSES LIST
+============================================================ */
+function filteredAnalyses(typeKey){
+  let list = invsOfType(typeKey);
+  const f = STATE.ui.filters;
+  if(f.status!=='all') list = list.filter(i=>i.status===f.status);
+  if(f.q) list = list.filter(i=> (i.name+' '+i.identifier+' '+i.sector).toLowerCase().includes(f.q.toLowerCase()));
+  return list;
+}
+function analysesPage(typeKey){
+  const t = typeInfo(typeKey);
+  const list = filteredAnalyses(typeKey);
+  const f = STATE.ui.filters;
+
+  return `
+  ${backBtn()}
+  <div class="page-head">
+    <div><div class="page-title">${t.label}</div><div class="page-sub">All saved research for ${t.plural.toLowerCase()}.</div></div>
+    <div class="btn btn-primary" data-action="new-analysis:${typeKey}">${icon('plus')} New Analysis</div>
+  </div>
+  ${tabsRow('type', typeKey, 'analyses')}
+  <div class="filter-bar">
+    <div class="search-inline">${icon('search')}<input id="analyses-search-input" placeholder="Search ${t.plural.toLowerCase()}..." value="${escAttr(f.q)}"></div>
+    <select class="select-native" data-bind="filter-status">
+      <option value="all" ${f.status==='all'?'selected':''}>All statuses</option>
+      ${STATUSES.map(s=>`<option value="${s}" ${f.status===s?'selected':''}>${s}</option>`).join('')}
+    </select>
+  </div>
+  <div class="card" id="analyses-table-container">
+    ${analysesTableOrEmpty(list, typeKey)}
+  </div>
+  `;
+}
+function analysesTableOrEmpty(list, typeKey){
+  const t = typeInfo(typeKey);
+  return list.length? analysesTable(list, typeKey) : emptyState('inbox',`No ${t.plural.toLowerCase()} match`,'Try clearing filters or create a new analysis.', `<div class="btn btn-primary btn-sm" data-action="new-analysis:${typeKey}" style="display:inline-flex;margin:0 auto">${icon('plus')} New Analysis</div>`);
+}
+function analysesTable(list, typeKey){
+  const f = FRAMEWORKS[typeKey]; const w = currentFrameworkWeights(typeKey);
+  const rows = list.map(i=>({inv:i, score:overallScore(i.analysis,f,w), comp:overallCompletion(i.analysis,f)}));
+  return `<div class="table-wrap"><table><thead><tr>
+  <th>${typeInfo(typeKey).idLabel==='Ticker'?'Company':'Name'}</th><th>${typeInfo(typeKey).idLabel}</th><th class="num">Score</th><th class="num">Completion</th><th>Status</th><th>Last Updated</th></tr></thead>
+  <tbody>${rows.map(r=>`<tr data-action="open:${r.inv.id}">
+    <td><div class="row-name"><div class="row-avatar">${initials(r.inv.name)}</div><div><div class="row-main">${esc(r.inv.name)}</div><div class="row-sub">${esc(r.inv.sector||r.inv.country||'')}</div></div></div></td>
+    <td class="muted">${esc(r.inv.identifier)}</td>
+    <td class="num">${r.score!=null?`<span class="pill ${scoreBand(r.score)}">${r.score}</span>`:'<span class="muted">-</span>'}</td>
+    <td class="num"><div style="display:flex;align-items:center;gap:8px;justify-content:flex-end"><span class="num" style="font-size:11.5px;color:var(--text2)">${r.comp}%</span><div class="progress-track thin"><div class="progress-fill" style="width:${r.comp}%"></div></div></div></td>
+    <td>${statusBadge(r.inv.status)}</td>
+    <td class="muted">${timeAgo(r.inv.updatedAt)}</td>
+  </tr>`).join('')}</tbody></table></div>`;
+}
+
+/* ============================================================
+   RANKINGS
+============================================================ */
+function rankingsPage(typeKey){
+  const t = typeInfo(typeKey);
+  const f = FRAMEWORKS[typeKey];
+  const profiles = profilesFor(typeKey);
+  const activeId = STATE.ui.rankProfile[typeKey] || 'default';
+  const active = profiles.find(p=>p.id===activeId) || profiles[0];
+  const list = invsOfType(typeKey);
+  const rows = list.map(i=>({inv:i, score:overallScore(i.analysis,f,active.weights)})).sort((a,b)=> (b.score||-1)-(a.score||-1));
+
+  return `
+  ${backBtn()}
+  <div class="page-head">
+    <div><div class="page-title">${t.label} Rankings</div><div class="page-sub">Compare research consistently across your ${t.plural.toLowerCase()}.</div></div>
+  </div>
+  ${tabsRow('type', typeKey, 'rankings')}
+  <div class="filter-bar">
+    <div class="muted" style="font-size:12px">Ranked using:</div>
+    <select class="select-native" data-bind="rank-profile:${typeKey}">
+      ${profiles.map(p=>`<option value="${p.id}" ${p.id===activeId?'selected':''}>${p.name}</option>`).join('')}
+    </select>
+    <div class="muted" style="font-size:11px;margin-left:auto">Changing the profile reweights categories only; underlying scores, reasoning and evidence are unchanged.</div>
+  </div>
+  <div class="card">
+    ${list.length? rankingsTable(rows,f,active) : emptyState('inbox','Nothing to rank yet','')}
+  </div>
+  `;
+}
+function rankingsTable(rows, f, profile){
+  return `<div class="table-wrap"><table><thead><tr><th>#</th><th>Investment</th><th class="num">Highest Score</th><th class="num">Quality</th><th class="num">Valuation</th><th>Risk</th><th>Status</th></tr></thead>
+  <tbody>${rows.map((r,idx)=>{ const b=bucketScores(r.inv); return `<tr data-action="open:${r.inv.id}"><td class="muted">${idx+1}</td>
+  <td><div class="row-name"><div class="row-avatar">${initials(r.inv.name)}</div><div class="row-main">${esc(r.inv.name)}</div></div></td>
+  <td class="num">${scorePill(r.score)}</td>
+  <td class="num muted">${b.quality!=null?b.quality:'-'}</td>
+  <td class="num muted">${b.valuation!=null?b.valuation:'-'}</td>
+  <td>${riskPill(b.risk)}</td>
+  <td>${statusBadge(r.inv.status)}</td></tr>`; }).join('')}</tbody></table></div>`;
+}
+
+/* ============================================================
+   WATCHLIST
+============================================================ */
+function watchlistPage(tab){
+  const active = tab==='review'? STATE.investments.filter(i=>i.status==='Needs Review') :
+                 tab==='recent'? [...STATE.investments].filter(i=>i.watchlist).sort((a,b)=>b.updatedAt-a.updatedAt) :
+                 STATE.investments.filter(i=>i.watchlist);
+  return `
+  ${backBtn()}
+  <div class="page-head"><div><div class="page-title">Watchlist</div><div class="page-sub">Investments you're tracking without a full active analysis.</div></div></div>
+  <div class="tabs">
+    <div class="tab ${tab!=='review'&&tab!=='recent'?'active':''}" data-action="goto:watchlist:all">All Watchlist</div>
+    <div class="tab ${tab==='recent'?'active':''}" data-action="goto:watchlist:recent">Recently Updated</div>
+    <div class="tab ${tab==='review'?'active':''}" data-action="goto:watchlist:review">Needs Review</div>
+  </div>
+  <div class="card">
+    ${active.length? watchlistTable(active) : emptyState('star','Nothing here yet','Add investments to your watchlist from their workspace.')}
+  </div>`;
+}
+function watchlistTable(list){
+  return `<div class="table-wrap"><table><thead><tr><th>Investment</th><th>Type</th><th class="num">Score</th><th>Status</th><th>Review Date</th><th>Last Updated</th></tr></thead>
+  <tbody>${list.map(i=>{ const f=FRAMEWORKS[i.type]; const s=overallScore(i.analysis,f,currentFrameworkWeights(i.type));
+  return `<tr data-action="open:${i.id}"><td><div class="row-name"><div class="row-avatar">${initials(i.name)}</div><div class="row-main">${esc(i.name)}</div></div></td>
+  <td class="muted">${typeInfo(i.type).plural}</td><td class="num">${s!=null?`<span class="pill ${scoreBand(s)}">${s}</span>`:'-'}</td>
+  <td>${statusBadge(i.status)}</td><td class="muted">${i.reviewDate?fmtDate(new Date(i.reviewDate).getTime()):'-'}</td><td class="muted">${timeAgo(i.updatedAt)}</td></tr>`; }).join('')}
+  </tbody></table></div>`;
+}
+
+/* ============================================================
+   FRAMEWORK EDITOR
+============================================================ */
+function frameworkPage(typeKey){
+  const t = typeInfo(typeKey);
+  const f = FRAMEWORKS[typeKey];
+  const weights = currentFrameworkWeights(typeKey);
+  const sum = Math.round(f.categories.reduce((s,c)=>s+weights[c.id],0)*10)/10;
+
+  return `
+  ${backBtn()}
+  <div class="page-head">
+    <div><div class="page-title">${f.label}</div><div class="page-sub">Framework version 1 · used by every ${t.plural.toLowerCase()} analysis unless a scoring profile is applied.</div></div>
+    <div class="btn btn-ghost btn-sm" data-action="reset-weights:${typeKey}">Reset to default weights</div>
+  </div>
+  <div class="callout">${icon('info')} Editing weights changes how <b>new</b> composite scores are calculated. Existing analyses keep the reasoning, evidence and criterion scores you've already entered. Only the weighting of the roll-up changes. A future version will pin each analysis to a specific framework version.</div>
+  <div class="two-col">
+    <div class="card">
+      <div class="card-head"><div class="card-title">Category Weights</div></div>
+      ${f.categories.map(c=>`<div class="weight-row"><div class="wname">${c.name}<div class="muted" style="font-size:10.5px">${c.criteria.length} criteria</div></div><input type="number" min="0" max="100" step="1" value="${weights[c.id]}" data-bind="weight:${typeKey}:${c.id}">%</div>`).join('')}
+      <div class="weight-total ${Math.abs(sum-100)<0.6?'ok':'bad'}">Total<span>${sum}%</span></div>
+      ${Math.abs(sum-100)>=0.6? `<div class="muted" style="font-size:11px;margin-top:4px">Weights must total 100%; adjust before this configuration is used for scoring.</div>`:''}
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">Categories & Criteria</div></div>
+      ${f.categories.map(c=>`<div style="margin-bottom:14px">
+        <div style="font-weight:600;font-size:12.5px;margin-bottom:5px">${c.name} <span class="muted" style="font-weight:500">(${weights[c.id]}%)</span></div>
+        <div style="font-size:11.5px;color:var(--text2);line-height:1.7">${c.criteria.map(x=>x.name).join(' · ')}</div>
+      </div>`).join('')}
+    </div>
+  </div>
+  <div class="hr"></div>
+  <div class="card">
+    <div class="card-head"><div class="card-title">Scoring Profiles</div></div>
+    <div class="table-wrap"><table><thead><tr><th>Profile</th>${f.categories.map(c=>`<th class="num">${c.name}</th>`).join('')}</tr></thead>
+    <tbody>${profilesFor(typeKey).map(p=>`<tr><td class="row-main">${p.name}</td>${f.categories.map(c=>`<td class="num muted">${p.weights[c.id]}%</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+    <div class="muted" style="font-size:11px;margin-top:10px">Profiles recompute the composite score by reweighting categories. They never change a criterion's stored score, reasoning, confidence or evidence.</div>
+  </div>
+  `;
+}
+
+/* ============================================================
+   SETTINGS
+============================================================ */
+function settingsPage(){
+  const gh = STATE.github;
+  return `
+  <div class="page-head"><div><div class="page-title">Settings</div><div class="page-sub">Application preferences and data.</div></div></div>
+
+  <div class="card" style="max-width:560px;margin-bottom:14px">
+    <div class="card-head"><div class="card-title">Updates</div>${updateAvailable?`<span class="status-badge st-inprogress">Update ready</span>`:''}</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-soft)">
+      <div><div class="row-main">This build</div><div class="muted" style="font-size:11.5px">${APP_VERSION}</div></div>
+      <div class="btn btn-ghost btn-sm" data-action="check-for-updates">Check for updates</div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border-soft)">
+      <div><div class="row-main">Auto-refresh on update</div><div class="muted" style="font-size:11.5px">Apply new versions automatically instead of showing a refresh prompt.</div></div>
+      <div class="theme-switch ${STATE.ui.autoRefreshOnUpdate?'on':''}" data-action="toggle-auto-refresh"><div class="knob"></div></div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0">
+      <div><div class="row-main">${updateAvailable? 'A new version is ready':'Up to date'}</div><div class="muted" style="font-size:11.5px">${updateAvailable? 'Refresh to pick it up.':'You have the latest version installed.'}</div></div>
+      ${updateAvailable? `<div class="btn btn-primary btn-sm" data-action="apply-update">Refresh now</div>` : ''}
+    </div>
+  </div>
+
+  <div class="card" style="max-width:560px;margin-bottom:14px">
+    <div class="card-head"><div class="card-title">Appearance</div></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0">
+      <div><div class="row-main">Theme</div><div class="muted" style="font-size:11.5px">Switch between dark and light. Dark is the default.</div></div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="muted" style="font-size:11.5px">${STATE.ui.theme==='light'?'Light':'Dark'}</span>
+        <div class="theme-switch ${STATE.ui.theme==='light'?'on':''}" data-action="toggle-theme"><div class="knob"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="max-width:560px;margin-bottom:14px">
+    <div class="card-head"><div class="card-title">Data</div></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border-soft)">
+      <div><div class="row-main">Export data</div><div class="muted" style="font-size:11.5px">Download every investment and analysis as a JSON file.</div></div>
+      <div class="btn btn-ghost btn-sm" data-action="export-data">${icon('download')} Export</div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border-soft)">
+      <div><div class="row-main">Import data</div><div class="muted" style="font-size:11.5px">Restore from a previously exported JSON file. This replaces current data.</div></div>
+      <div class="btn btn-ghost btn-sm" data-action="trigger-import">${icon('upload')} Import</div>
+      <input type="file" id="import-file-input" accept="application/json" style="display:none">
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border-soft)">
+      <div><div class="row-main">Sample data</div><div class="muted" style="font-size:11.5px">Preloaded example analyses across all five investment types.</div></div>
+      <div class="btn btn-ghost btn-sm btn-danger" data-action="clear-demo">Clear</div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0">
+      <div><div class="row-main">All research data</div><div class="muted" style="font-size:11.5px">Stored locally in this browser. Nothing is sent anywhere unless you connect GitHub below.</div></div>
+      <div class="btn btn-ghost btn-sm btn-danger" data-action="clear-all">Reset app</div>
+    </div>
+  </div>
+
+  <div class="card" style="max-width:560px;margin-bottom:14px">
+    <div class="card-head"><div class="card-title" style="display:flex;align-items:center;gap:7px">${icon('github')} GitHub Sync</div>${gh.connected?`<span class="status-badge st-complete">Connected</span>`:''}</div>
+    ${gh.connected? `
+      <div style="font-size:12.5px;margin-bottom:4px"><b>${esc(gh.repo)}</b> <span class="muted">· ${esc(gh.branch)}</span></div>
+      <div class="muted" style="font-size:11px;margin-bottom:14px">Last synced: ${gh.lastSync? fmtDateTime(gh.lastSync) : 'never'}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-top:1px solid var(--border-soft);border-bottom:1px solid var(--border-soft);margin-bottom:12px">
+        <div><div class="row-main" style="font-size:12px">Auto-sync</div><div class="muted" style="font-size:11px">Push automatically a few seconds after each change.</div></div>
+        <div class="theme-switch ${gh.autoSync?'on':''}" data-action="toggle-autosync"><div class="knob"></div></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <div class="btn btn-primary btn-sm" data-action="github-push">${icon('github')} Push Now</div>
+        <div class="btn btn-ghost btn-sm btn-danger" data-action="github-disconnect">Disconnect</div>
+      </div>
+    ` : `
+      <div class="form-field" style="margin-bottom:10px"><label>Repository (owner/repo)</label><input type="text" id="gh_repo" placeholder="e.g. yourname/keel-data"></div>
+      <div class="form-grid" style="grid-template-columns:1fr 2fr">
+        <div class="form-field"><label>Branch</label><input type="text" id="gh_branch" placeholder="main" value="main"></div>
+        <div class="form-field"><label>Personal Access Token</label><input type="password" id="gh_token" placeholder="ghp_..."></div>
+      </div>
+      <div class="btn btn-primary btn-sm" data-action="github-save-connection" style="margin-top:4px">Connect</div>
+    `}
+    <div class="callout" style="margin-top:14px">${icon('info')} Data is pushed to <b>keel-data.json</b> in the repo you choose, the same pattern as Jarful. This requires a token with write access to that repo; use a private repo. <b>Sync only works once this file is downloaded and opened outside Claude's preview</b>; Claude's hosted preview blocks outbound requests to the GitHub API.</div>
+  </div>
+
+  <div class="card" style="max-width:560px">
+    <div class="card-head"><div class="card-title">About</div></div>
+    <div class="muted" style="font-size:12px;line-height:1.7">Keel is a personal research workspace. It quantifies and organizes your own judgment. It does not generate investment recommendations. You remain responsible for every investment decision.</div>
+  </div>
+  `;
+}
+
+/* ============================================================
+   WORKSPACE (single investment)
+============================================================ */
+function workspacePage(id, tab){
+  const inv = findInv(id);
+  if(!inv) return emptyState('inbox','Not found','This analysis may have been removed.');
+  const f = FRAMEWORKS[inv.type];
+  const t = typeInfo(inv.type);
+  const w = currentFrameworkWeights(inv.type);
+  const os = overallScore(inv.analysis, f, w);
+  const comp = overallCompletion(inv.analysis, f);
+
+  const tabs = ['summary','analysis','valuation','risk','thesis','history'];
+  const tabLabels = {summary:'Summary',analysis:'Analysis',valuation:'Valuation',risk:'Risk',thesis:'Thesis',history:'History'};
+
+  let body='';
+  if(tab==='summary') body = wsSummary(inv,f,w,os,comp);
+  else if(tab==='analysis') body = wsAnalysis(inv,f,comp);
+  else if(tab==='valuation') body = wsValuation(inv,f);
+  else if(tab==='risk') body = wsRisk(inv,f);
+  else if(tab==='thesis') body = wsThesis(inv);
+  else if(tab==='history') body = wsHistory(inv,f,w);
+
+  return `
+  ${backBtn()}
+  <div class="crumb"><b data-action="goto:type:${inv.type}" style="cursor:pointer">${t.label}</b> / ${esc(inv.name)}</div>
+  <div class="page-head">
+    <div style="display:flex;align-items:center;gap:13px">
+      <div class="row-avatar" style="width:42px;height:42px;font-size:14px">${initials(inv.name)}</div>
+      <div>
+        <div style="display:flex;align-items:center;gap:9px"><div class="page-title" style="margin-bottom:0">${esc(inv.name)}</div>${statusBadge(inv.status)}</div>
+        <div class="page-sub">${esc(inv.identifier)}${inv.sector?' · '+esc(inv.sector):''}${inv.country?' · '+esc(inv.country):''}</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="btn btn-ghost btn-sm" data-action="toggle-watch:${inv.id}">${icon('star')} ${inv.watchlist?'On Watchlist':'Add to Watchlist'}</div>
+      <select class="select-native" data-bind="status:${inv.id}">${STATUSES.map(s=>`<option value="${s}" ${inv.status===s?'selected':''}>${s}</option>`).join('')}</select>
+      <div class="icon-btn" style="color:var(--negative)" data-action="delete-analysis:${inv.id}" title="Delete analysis">${icon('trash')}</div>
+    </div>
+  </div>
+  <div class="tabs">${tabs.map(tb=>`<div class="tab ${tb===tab?'active':''}" data-action="goto:open:${inv.id}:${tb}">${tabLabels[tb]}</div>`).join('')}</div>
+  ${body}
+  `;
+}
+
+function wsSummary(inv,f,w,os,comp){
+  const cats = f.categories.map(c=>({c, s:categoryScore(inv.analysis,c)}));
+  const th = inv.analysis.thesis||{};
+  return `
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-title" style="margin-bottom:8px">About</div>
+    <textarea class="reason" style="min-height:64px" placeholder="What does this company/issuer/fund actually do? A brief description so you don't have to hold it in your head." data-blur="invfield:${inv.id}:description">${esc(inv.description)}</textarea>
+  </div>
+  <div class="grid grid-2" style="align-items:start">
+    <div class="card" style="display:flex;gap:20px;align-items:center">
+      ${radial(os)}
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+          <div class="card-title">Score Breakdown</div>
+          ${os!=null?`<div class="card-link" data-action="score-explain:${inv.id}">Why this score? ${icon('chevron')}</div>`:''}
+        </div>
+        ${cats.map(x=>`<div style="display:flex;align-items:center;gap:9px;padding:5px 0">
+          <span style="width:6px;height:6px;border-radius:50%;background:${x.s!=null?catDotColor(x.c.id):'var(--muted)'};flex:none"></span>
+          <span style="flex:1;font-size:12px;color:var(--text2)">${x.c.name}</span>
+          <span class="num" style="font-size:12.5px;font-weight:600">${x.s!=null? score100(x.s) : '-'}</span>
+        </div>`).join('')}
+        <div class="caveat">${icon('info')} A structured personal assessment, not an objective rating or a buy/sell signal.</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title" style="margin-bottom:10px">Research Status</div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px"><span class="muted">Overall completion</span><span class="num">${comp}%</span></div>
+      <div class="progress-track" style="width:100%;height:6px;margin-bottom:14px"><div class="progress-fill" style="width:${comp}%"></div></div>
+      ${f.categories.map(c=>{ const cc=categoryCompletion(inv.analysis,c); return `<div style="display:flex;justify-content:space-between;font-size:11.5px;padding:4px 0"><span class="muted">${c.name}</span><span class="num" style="color:${cc===100?'var(--positive)':cc===0?'var(--muted)':'var(--text2)'}">${cc===100?'Complete':cc+'%'}</span></div>`; }).join('')}
+    </div>
+  </div>
+  <div class="sec-title">Investment Thesis</div>
+  <div class="grid grid-2">
+    <div class="card"><div class="card-title" style="margin-bottom:8px">Key Strengths</div><div style="font-size:12.5px;color:var(--text2);white-space:pre-wrap">${esc(th.strengths)||'<span class="muted">Not recorded yet. Add this in the Thesis tab.</span>'}</div></div>
+    <div class="card"><div class="card-title" style="margin-bottom:8px">Key Concerns</div><div style="font-size:12.5px;color:var(--text2);white-space:pre-wrap">${esc(th.concerns)||'<span class="muted">Not recorded yet. Add this in the Thesis tab.</span>'}</div></div>
+  </div>
+  <div class="card" style="margin-top:14px"><div class="card-title" style="margin-bottom:8px">Thesis Summary</div><div style="font-size:12.5px;color:var(--text2);white-space:pre-wrap">${esc(th.thesis)||'<span class="muted">No thesis written yet.</span>'}</div></div>
+  `;
+}
+function catDotColor(catId){
+  const colors=['var(--accent)','var(--purple)','var(--positive)','var(--warning)'];
+  let h=0; for(const c of catId) h+=c.charCodeAt(0);
+  return colors[h%colors.length];
+}
+function radial(score){
+  const pct = score==null? 0 : score;
+  const deg = pct/100*360;
+  const color = score==null?'var(--muted)': score>=75?'var(--positive)':score>=55?'var(--warning)':'var(--negative)';
+  return `<div class="radial" style="background:conic-gradient(${color} ${deg}deg, var(--border-soft) ${deg}deg)">
+    <div class="radial-inner"><div class="radial-val">${score!=null?score:'-'}</div><div class="radial-of">${score!=null?'/ 100':'not scored'}</div></div>
+  </div>`;
+}
+
+function wsAnalysis(inv,f,comp){
+  const open = STATE.ui.openCats[inv.id] || {};
+  return `
+  <div class="callout">${icon('info')} Scores are the user's structured judgment, not an automatic rating. <b>${comp}%</b> of criteria answered across ${f.categories.length} categories.</div>
+  ${f.categories.map(c=>{
+    const s = categoryScore(inv.analysis,c); const cc = categoryCompletion(inv.analysis,c);
+    const isOpen = !!open[c.id];
+    const isRisk = c.tags.includes('risk');
+    return `<div class="accordion ${isOpen?'open':''}">
+      <div class="acc-head" data-action="toggle-cat:${inv.id}:${c.id}">
+        ${icon('chevron','acc-chev')}
+        <div class="acc-title">${c.name}${isRisk?'<span class="tag">RISK</span>':''}</div>
+        <div class="acc-meta"><div class="progress-track thin"><div class="progress-fill" style="width:${cc}%"></div></div><span>${cc}%</span><span class="pill ${scoreBand(s!=null?score100(s):null)}" style="min-width:34px;justify-content:center">${s!=null?score100(s):'-'}</span></div>
+      </div>
+      ${isOpen? `<div class="acc-body">
+        ${isRisk? `<div class="scale-hint" style="margin:11px 0 2px">${icon('info')} Higher score = lower risk.</div>`:''}
+        ${c.criteria.map(cr=>criterionRow(inv, c, cr, isRisk)).join('')}
+      </div>` : ''}
+    </div>`;
+  }).join('')}
+  `;
+}
+function criterionRow(inv, cat, cr, isRisk){
+  const a = (inv.analysis.categories[cat.id] && inv.analysis.categories[cat.id].criteria[cr.id]) || {};
+  const key = inv.id+'|'+cat.id+'|'+cr.id;
+  return `<div class="criterion">
+    <div class="crit-name">${cr.name}</div>
+    <div class="crit-row">
+      <div class="crit-field">
+        <div class="crit-field-lbl">Score</div>
+        <div class="scale">${[1,2,3,4,5].map(v=>`<div class="scale-btn ${isRisk?'risk':''} ${a.score===v?'on':''}" data-action="set-score:${key}:${v}">${v}</div>`).join('')}</div>
+        <div class="scale-hint">${isRisk? (a.score?riskLabel(a.score)+' Risk':'Very High → Very Low Risk') : (a.score? ['','Very Weak','Weak','Average','Strong','Very Strong'][a.score] : '1 = Very Weak · 5 = Very Strong')}</div>
+      </div>
+      <div class="crit-field">
+        <div class="crit-field-lbl">Confidence</div>
+        <div class="scale">${[1,2,3,4,5].map(v=>`<div class="scale-btn ${a.confidence===v?'on':''}" data-action="set-conf:${key}:${v}" style="width:22px;height:22px;font-size:10.5px">${v}</div>`).join('')}</div>
+      </div>
+    </div>
+    <textarea class="reason" placeholder="Reasoning: why this score?" data-blur="reason:${key}">${esc(a.reasoning)}</textarea>
+    <div class="evidence-list">${(a.evidence||[]).map((e,idx)=>`<div class="evidence-chip">${icon('clip')} ${esc(e)}<button data-action="rm-evidence:${key}:${idx}">${icon('x')}</button></div>`).join('')}</div>
+    <div class="add-evidence" data-action="add-evidence:${key}">${icon('plus')} Add source</div>
+  </div>`;
+}
+
+function wsValuation(inv,f){
+  const v = inv.analysis.valuation||{};
+  const isStock = inv.type==='stock';
+  const isBond = inv.type==='bond';
+  return `
+  <div class="callout">${icon('info')} Objective inputs below are raw data. Qualitative valuation judgment (e.g. Valuation Attractiveness) is recorded in the <b>Analysis</b> tab so score, reasoning and evidence stay together.</div>
+  <div class="sec-title">Market / Objective Data</div>
+  <div class="metric-grid">
+    ${f.valuationFields.map(k=>`<div class="metric-box"><label>${k}</label><input type="text" placeholder="-" value="${escAttr(v[k]||'')}" data-blur="val:${inv.id}:${k}"></div>`).join('')}
+  </div>
+  ${isStock? dcfBlock(inv) : ''}
+  ${isBond? realReturnBlock(inv) : ''}
+  ${!isStock && !isBond? costBlock(inv) : ''}
+  `;
+}
+function dcfBlock(inv){
+  const d = inv.analysis.dcf||{};
+  const g = parseFloat(d.growth)||0, m = parseFloat(d.margin)||0, disc = parseFloat(d.discount)||10, term = parseFloat(d.terminal)||2.5, price=parseFloat((inv.analysis.valuation||{})['Share Price'])||0;
+  // simplified illustrative single-stage estimate, clearly labeled
+  const estimate = price>0 ? Math.round(price * (1 + (g-disc)/100 + (term-2)/100) * 100)/100 : null;
+  return `
+  <div class="sec-title">DCF Workspace <span class="muted" style="font-weight:400;font-size:11px">(optional, assumption-driven)</span></div>
+  <div class="metric-grid">
+    <div class="metric-box"><label>Revenue Growth %</label><input type="text" placeholder="e.g. 8" value="${escAttr(d.growth||'')}" data-blur="dcf:${inv.id}:growth"></div>
+    <div class="metric-box"><label>Operating Margin %</label><input type="text" placeholder="e.g. 18" value="${escAttr(d.margin||'')}" data-blur="dcf:${inv.id}:margin"></div>
+    <div class="metric-box"><label>Discount Rate %</label><input type="text" placeholder="e.g. 10" value="${escAttr(d.discount||'')}" data-blur="dcf:${inv.id}:discount"></div>
+    <div class="metric-box"><label>Terminal Growth %</label><input type="text" placeholder="e.g. 2.5" value="${escAttr(d.terminal||'')}" data-blur="dcf:${inv.id}:terminal"></div>
+  </div>
+  <div class="filter-bar">
+    ${['Bear','Base','Bull'].map(s=>`<div class="chip" style="cursor:default">${s}</div>`).join('')}
+  </div>
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:flex;gap:30px;flex-wrap:wrap">
+      <div><div class="muted" style="font-size:11px">Current Price</div><div class="num" style="font-size:16px;font-weight:700">${price?('$'+price):'-'}</div></div>
+      <div><div class="muted" style="font-size:11px">Illustrative Estimated Value</div><div class="num" style="font-size:16px;font-weight:700">${estimate?('$'+estimate):'-'}</div></div>
+      <div><div class="muted" style="font-size:11px">Margin of Safety</div><div class="num" style="font-size:16px;font-weight:700">${estimate&&price? Math.round((estimate-price)/estimate*1000)/10+'%':'-'}</div></div>
+    </div>
+    <div class="caveat">${icon('info')} This is a simplified, assumption-dependent estimate, not a precise valuation or a target price.</div>
+  </div>`;
+}
+function realReturnBlock(inv){
+  const v = inv.analysis.valuation||{};
+  const nominal = parseFloat(v['Yield to Maturity'])||parseFloat(v['Current Yield'])||0;
+  const infl = parseFloat(inv.analysis.expectedInflation)||0;
+  const real = nominal? (((1+nominal/100)/(1+infl/100))-1)*100 : null;
+  return `
+  <div class="sec-title">Real Return</div>
+  <div class="metric-grid">
+    <div class="metric-box"><label>Expected Inflation %</label><input type="text" placeholder="e.g. 4" value="${escAttr(inv.analysis.expectedInflation||'')}" data-blur="field:${inv.id}:expectedInflation"></div>
+    <div class="metric-box" style="background:var(--elevated)"><label>Estimated Real Return</label><div style="font-size:14.5px;font-weight:700" class="num">${real!=null?Math.round(real*10)/10+'%':'-'}</div></div>
+  </div>
+  <div class="caveat">${icon('info')} Real Return = (1 + Nominal) / (1 + Inflation) − 1. An estimate based on your assumptions.</div>
+  `;
+}
+function costBlock(inv){
+  const v = inv.analysis.valuation||{};
+  return `<div class="callout">${icon('info')} Fund-level cost of access (expense ratio, tracking difference, tax) is captured above. Portfolio valuation and manager/strategy judgment live in the Analysis tab.</div>`;
+}
+
+function wsRisk(inv,f){
+  const riskCats = f.categories.filter(c=>c.tags.includes('risk'));
+  const rn = inv.analysis.riskNotes||{};
+  return `
+  <div class="callout">${icon('info')} <b>Higher score = lower risk.</b> These assessments are entered once in the Analysis tab and summarized here.</div>
+  <div class="sec-title">Risk Scorecard</div>
+  <div class="grid grid-2" style="margin-bottom:8px">
+  ${riskCats.map(c=>{
+    const a = categoryAssessments(inv.analysis,c.id);
+    return `<div class="card">
+      <div class="card-title" style="margin-bottom:8px">${c.name}</div>
+      ${c.criteria.map(cr=>{ const s=a[cr.id]&&a[cr.id].score;
+        return `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border-soft)"><span style="font-size:12px;color:var(--text2)">${cr.name}</span><span class="pill ${s?( s>=4?'s-high':s===3?'s-mid':'s-low'):'s-neu'}">${riskLabel(s)}</span></div>`; }).join('')}
+    </div>`;
+  }).join('')}
+  </div>
+  <div class="sec-title">Narrative Risk Assessment</div>
+  <div class="field-full"><label>Key Risks</label><textarea data-blur="risknote:${inv.id}:keyRisks" placeholder="What are the most important risks here?">${esc(rn.keyRisks)}</textarea></div>
+  <div class="field-full"><label>Potential Loss Scenarios</label><textarea data-blur="risknote:${inv.id}:lossScenarios" placeholder="What could cause a large or permanent loss?">${esc(rn.lossScenarios)}</textarea></div>
+  <div class="field-full"><label>What Could Change My Mind?</label><textarea data-blur="risknote:${inv.id}:whatWouldChangeMind" placeholder="What evidence would make you reassess the risk profile?">${esc(rn.whatWouldChangeMind)}</textarea></div>
+  `;
+}
+
+function wsThesis(inv){
+  const th = inv.analysis.thesis||{};
+  const fields = [
+    ['thesis','Investment Thesis','Why might this be an attractive investment?'],
+    ['strengths','Key Strengths',''],
+    ['concerns','Key Concerns',''],
+    ['assumptions','Key Assumptions',''],
+    ['catalysts','Catalysts',''],
+    ['invalidate','What Could Invalidate the Thesis?',''],
+    ['reconsider','What Would Make Me Sell / Reconsider?',''],
+  ];
+  return `
+  <div class="callout">${icon('info')} This is narrative research, kept separate from the numerical score.</div>
+  ${fields.map(([k,label,ph])=>`<div class="field-full"><label>${label}</label><textarea data-blur="thesis:${inv.id}:${k}" placeholder="${ph}">${esc(th[k])}</textarea></div>`).join('')}
+  <div class="form-grid">
+    <div class="form-field"><label>Expected Holding Period</label><input type="text" value="${escAttr(th.holdingPeriod||'')}" placeholder="e.g. 3–5 years" data-blur="thesis:${inv.id}:holdingPeriod"></div>
+    <div class="form-field"><label>Review Date</label><input type="date" value="${escAttr(th.reviewDate||'')}" data-blur="thesis:${inv.id}:reviewDate"></div>
+  </div>
+  `;
+}
+
+function wsHistory(inv,f,w){
+  const versions = inv.analysis.versions||[];
+  const os = overallScore(inv.analysis,f,w);
+  return `
+  <div class="page-head" style="align-items:center">
+    <div class="muted" style="font-size:12px">Preserve a snapshot of scores, reasoning and thesis at this point in time.</div>
+    <div class="btn btn-primary btn-sm" data-action="save-version:${inv.id}">${icon('plus')} Save Version</div>
+  </div>
+  ${versions.length===0? emptyState('clock','No versions saved yet','Save a version to start tracking how your analysis evolves.') : `
+  <div class="card">
+  ${[...versions].reverse().map((v,idx)=>{
+    const prevIdx = versions.length-2-idx; const prev = prevIdx>=0? versions[prevIdx]:null;
+    const delta = prev? v.overallScore-prev.overallScore : null;
+    return `<div class="list-row">
+      <div class="list-avatar" style="background:var(--accent-soft);color:var(--accent);border:none">v${versions.length-idx}</div>
+      <div class="list-main"><div class="list-title">Score ${v.overallScore!=null?v.overallScore:'-'} ${delta!=null?`<span style="font-size:11px;font-weight:600;margin-left:6px" class="${delta>=0?'up':'down'}">${delta>=0?'+':''}${delta}</span>`:''}</div><div class="list-sub">${v.note||'Saved version'}</div></div>
+      <div class="list-time">${fmtDateTime(v.ts)}</div>
+    </div>`;
+  }).join('')}
+  </div>`}
+  <div class="caveat">${icon('info')} Current live score: <b class="num">${os!=null?os:'-'}</b>. Save a version to lock it into history.</div>
+  `;
+}
+
+/* ============================================================
+   SCORE EXPLANATION MODAL
+============================================================ */
+function scoreExplainHtml(inv){
+  const f = FRAMEWORKS[inv.type]; const w = currentFrameworkWeights(inv.type);
+  const os = overallScore(inv.analysis,f,w);
+  return `<div class="modal wide">
+    <div class="modal-head"><div class="modal-title">How this score is calculated</div><div class="modal-close" data-action="close-modal">${icon('x')}</div></div>
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+      <div style="font-size:32px;font-weight:800">${os!=null?os:'-'}</div><div class="muted" style="font-size:12px">/ 100 overall<br>weighted sum of category scores</div>
+    </div>
+    <div class="score-explain">
+      <div class="se-row head"><div>Category</div><div class="n">Score</div><div class="n">Weight</div><div class="n">Contribution</div></div>
+      ${f.categories.map(c=>{ const s=categoryScore(inv.analysis,c); const s100=s!=null?score100(s):null; const wgt=w[c.id]; const contrib = s100!=null? Math.round(s100*wgt)/100 : null;
+        return `<div class="se-row"><div>${c.name}</div><div class="n">${s100!=null?s100:'-'}</div><div class="n">${wgt}%</div><div class="n">${contrib!=null?contrib:'-'}</div></div>`; }).join('')}
+    </div>
+    <div class="caveat" style="margin-top:12px">${icon('info')} Categories with no scored criteria are excluded from the weighted average rather than counted as zero.</div>
+  </div>`;
+}
+
+/* ============================================================
+   NEW ANALYSIS MODAL
+============================================================ */
+function newAnalysisHtml(typeKey){
+  const t = typeInfo(typeKey);
+  return `<div class="modal">
+    <div class="modal-head"><div class="modal-title">New ${t.label==='Individual Stocks'?'Stock':t.label.replace(/s$/,'')} Analysis</div><div class="modal-close" data-action="close-modal">${icon('x')}</div></div>
+    <div class="form-grid">
+      <div class="form-field" style="grid-column:1/-1"><label>Name *</label><input type="text" id="na_name" placeholder="e.g. Atlas Energy"></div>
+      <div class="form-field"><label>${t.idLabel}</label><input type="text" id="na_identifier" placeholder="e.g. ATLS"></div>
+      <div class="form-field"><label>Currency</label><input type="text" id="na_currency" placeholder="USD" value="USD"></div>
+      <div class="form-field"><label>Country</label><input type="text" id="na_country" placeholder="e.g. United States"></div>
+      <div class="form-field"><label>Sector</label><input type="text" id="na_sector" placeholder="e.g. Energy"></div>
+      <div class="form-field" style="grid-column:1/-1"><label>Description</label><textarea id="na_desc" placeholder="What does this company/issuer/fund actually do? A few sentences goes a long way once you've got a lot of these to keep track of." rows="3" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:12.5px;padding:9px 11px;resize:vertical;font-family:var(--font);line-height:1.5;min-height:70px"></textarea></div>
+    </div>
+    <div class="muted" style="font-size:11px;margin-bottom:6px">Framework: <b style="color:var(--text2)">${FRAMEWORKS[typeKey].label}</b> (default)</div>
+    <div class="modal-foot">
+      <div class="btn btn-ghost" data-action="close-modal">Cancel</div>
+      <div class="btn btn-primary" data-action="create-analysis:${typeKey}">Create Analysis</div>
+    </div>
+  </div>`;
+}
+
+function modalHtml(){
+  const m = STATE.ui.modal;
+  if(m.type==='new') return `<div class="modal-overlay" data-action="overlay-close">${newAnalysisHtml(m.typeKey)}</div>`;
+  if(m.type==='scoreExplain') return `<div class="modal-overlay" data-action="overlay-close">${scoreExplainHtml(findInv(m.id))}</div>`;
+  if(m.type==='confirmDelete'){
+    const inv = findInv(m.id);
+    return `<div class="modal-overlay" data-action="overlay-close"><div class="modal">
+      <div class="modal-head"><div class="modal-title">Delete this analysis?</div><div class="modal-close" data-action="close-modal">${icon('x')}</div></div>
+      <div style="font-size:12.5px;color:var(--text2);line-height:1.6;margin-bottom:6px">This permanently removes <b style="color:var(--text)">${inv?esc(inv.name):'this investment'}</b>, including every score, reasoning entry, evidence source, valuation note, thesis and saved version. This can't be undone.</div>
+      <div class="modal-foot"><div class="btn btn-ghost" data-action="close-modal">Cancel</div><div class="btn btn-primary btn-danger" style="background:var(--negative);border-color:var(--negative);color:#fff" data-action="confirm-delete:${m.id}">Delete Analysis</div></div>
+    </div></div>`;
+  }
+  if(m.type==='evidence') return `<div class="modal-overlay" data-action="overlay-close"><div class="modal">
+    <div class="modal-head"><div class="modal-title">Add Source</div><div class="modal-close" data-action="close-modal">${icon('x')}</div></div>
+    <div class="form-field" style="margin-bottom:14px"><label>Source title or URL</label><input type="text" id="ev_input" placeholder="e.g. FY2026 Annual Report"></div>
+    <div class="modal-foot"><div class="btn btn-ghost" data-action="close-modal">Cancel</div><div class="btn btn-primary" data-action="confirm-evidence:${m.key}">Add</div></div>
+  </div></div>`;
+  return '';
+}
+
+/* ============================================================
+   ESCAPING
+============================================================ */
+function esc(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); }
+function escAttr(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+/* ============================================================
+   EVENT HANDLING (delegation)
+============================================================ */
+function setDeep(obj, path, val){
+  // path e.g. category.criteria.crId.score - used sparingly, most mutations are explicit below
+}
+
+function ensureCriterion(inv, catId, crId){
+  if(!inv.analysis.categories[catId]) inv.analysis.categories[catId] = {criteria:{}, notes:''};
+  if(!inv.analysis.categories[catId].criteria[crId]) inv.analysis.categories[catId].criteria[crId] = {score:null,confidence:null,reasoning:'',evidence:[]};
+  return inv.analysis.categories[catId].criteria[crId];
+}
+
+function bindEvents(){
+  root.onclick = function(e){
+    const el = e.target.closest('[data-action]');
+    if(!el) return;
+    const action = el.getAttribute('data-action');
+    handleAction(action, e);
+  };
+  root.onchange = function(e){
+    const bindEl = e.target.closest('[data-bind]');
+    if(bindEl){ handleBind(bindEl.getAttribute('data-bind'), bindEl.value); return; }
+  };
+  if(!root._blurBound){
+    root.addEventListener('blur', function(e){
+      const t = e.target;
+      if(t.matches && t.matches('[data-blur]')){ handleBlur(t.getAttribute('data-blur'), t.value); }
+    }, true);
+    root._blurBound = true;
+  }
+  root.oninput = function(e){};
+
+  const searchInput = document.getElementById('global-search-input');
+  if(searchInput){
+    searchInput.oninput = function(ev){ STATE.ui.search = ev.target.value; STATE.ui.searchOpen = true; updateSearchResults(); };
+    searchInput.onfocus = function(){ STATE.ui.searchOpen = true; updateSearchResults(); };
+    searchInput.onblur = function(){ setTimeout(function(){ STATE.ui.searchOpen = false; const c=document.getElementById('search-results-container'); if(c) c.innerHTML=''; }, 160); };
+  }
+  updateSearchResults();
+
+  const analysesSearch = document.getElementById('analyses-search-input');
+  if(analysesSearch){
+    analysesSearch.oninput = function(ev){
+      STATE.ui.filters.q = ev.target.value;
+      const typeKey = STATE.ui.route.type;
+      const container = document.getElementById('analyses-table-container');
+      if(container && typeKey) container.innerHTML = analysesTableOrEmpty(filteredAnalyses(typeKey), typeKey);
+    };
+  }
+
+  const importInput = document.getElementById('import-file-input');
+  if(importInput){
+    importInput.onchange = function(ev){
+      const file = ev.target.files && ev.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = function(){
+        try{
+          const parsed = JSON.parse(reader.result);
+          if(!parsed || !Array.isArray(parsed.investments)) throw new Error('bad shape');
+          STATE.investments = parsed.investments;
+          STATE.frameworkOverrides = parsed.frameworkOverrides || {};
+          STATE.ui.isDemo = false;
+          persist(); render(); toast('Data imported');
+        }catch(err){ toast('Could not read that file. Expected a Keel export.'); }
+      };
+      reader.readAsText(file);
+    };
+  }
+}
+function updateSearchResults(){
+  const c = document.getElementById('search-results-container');
+  if(!c) return;
+  const q = (STATE.ui.search||'').trim().toLowerCase();
+  if(!STATE.ui.searchOpen || !q){ c.innerHTML=''; c.onmousedown=null; return; }
+  const matches = STATE.investments.filter(i => (i.name+' '+i.identifier+' '+i.sector+' '+i.country).toLowerCase().includes(q)).slice(0,8);
+  if(!matches.length){ c.innerHTML = `<div class="search-results"><div class="sr-empty">No matches for "${esc(STATE.ui.search)}"</div></div>`; c.onmousedown=null; return; }
+  c.innerHTML = `<div class="search-results">${matches.map(i=>`<div class="sr-item" data-id="${i.id}"><div class="row-avatar" style="width:24px;height:24px;font-size:9.5px">${initials(i.name)}</div><div><div class="list-title" style="font-size:12px">${esc(i.name)}</div><div class="list-sub">${esc(i.identifier)} · ${typeInfo(i.type).plural}</div></div></div>`).join('')}</div>`;
+  c.onmousedown = function(ev){
+    const item = ev.target.closest('.sr-item');
+    if(!item) return;
+    ev.preventDefault();
+    const id = item.getAttribute('data-id');
+    STATE.ui.search=''; STATE.ui.searchOpen=false;
+    const inv = findInv(id);
+    if(inv) nav('workspace', inv.type, id, 'summary');
+  };
+}
+
+function handleBind(kind, value){
+  if(kind==='filter-status'){ STATE.ui.filters.status = value; render(); return; }
+  if(kind.startsWith('rank-profile:')){ const type=kind.split(':')[1]; STATE.ui.rankProfile[type]=value; render(); return; }
+  if(kind.startsWith('status:')){ const id=kind.split(':')[1]; const inv=findInv(id); inv.status=value; touch(inv); flashSave(); return; }
+  if(kind.startsWith('weight:')){ const [,type,catId]=kind.split(':'); if(!STATE.frameworkOverrides[type]) STATE.frameworkOverrides[type]={};
+    const f=FRAMEWORKS[type]; f.categories.forEach(c=>{ if(STATE.frameworkOverrides[type][c.id]==null) STATE.frameworkOverrides[type][c.id]=c.weight; });
+    STATE.frameworkOverrides[type][catId] = parseFloat(value)||0; render(); return; }
+}
+function handleBlur(kind, value){
+  const parts = kind.split(':');
+  const tag = parts[0];
+  if(tag==='reason'){ const [,id,catId,crId]=parts; const inv=findInv(id); const c=ensureCriterion(inv,catId,crId); c.reasoning=value; touch(inv); flashSave(); return; }
+  if(tag==='val'){ const id=parts[1]; const key=parts.slice(2).join(':'); const inv=findInv(id); inv.analysis.valuation[key]=value; touch(inv); flashSave(); return; }
+  if(tag==='dcf'){ const id=parts[1]; const key=parts[2]; const inv=findInv(id); if(!inv.analysis.dcf) inv.analysis.dcf={}; inv.analysis.dcf[key]=value; touch(inv); flashSave(); return; }
+  if(tag==='field'){ const id=parts[1]; const key=parts[2]; const inv=findInv(id); inv.analysis[key]=value; touch(inv); flashSave(); return; }
+  if(tag==='risknote'){ const id=parts[1]; const key=parts[2]; const inv=findInv(id); inv.analysis.riskNotes[key]=value; touch(inv); flashSave(); return; }
+  if(tag==='thesis'){ const id=parts[1]; const key=parts[2]; const inv=findInv(id); if(!inv.analysis.thesis) inv.analysis.thesis={}; inv.analysis.thesis[key]=value; touch(inv); flashSave(); return; }
+  if(tag==='invfield'){ const id=parts[1]; const key=parts[2]; const inv=findInv(id); inv[key]=value; touch(inv); flashSave(); return; }
+}
+
+function handleAction(action, e){
+  const parts = action.split(':');
+  const kind = parts[0];
+
+  if(kind==='goto'){
+    const sub = parts[1];
+    if(sub==='dashboard'){ nav('dashboard'); return; }
+    if(sub==='type'){ nav('type', parts[2]); return; }
+    if(sub==='analyses'){ nav('analyses', parts[2]); return; }
+    if(sub==='rankings'){ nav('rankings', parts[2]); return; }
+    if(sub==='framework'){ nav('framework', parts[2]); return; }
+    if(sub==='watchlist-type'){ nav('type', parts[2]); return; } // fallback: type watchlist tab not separately modeled
+    if(sub==='watchlist'){ nav('watchlist', null, null, parts[2]); return; }
+    if(sub==='settings'){ nav('settings'); return; }
+    if(sub==='open'){ const id=parts[2]; const tab=parts[3]||'summary'; nav('workspace', findInv(id).type, id, tab); return; }
+    return;
+  }
+  if(action==='nav-dashboard'){ nav('dashboard'); return; }
+  if(kind==='toggle-sidebar'){ STATE.ui.sidebarCollapsed = !STATE.ui.sidebarCollapsed; render(); return; }
+  if(kind==='toggle-theme'){ STATE.ui.theme = STATE.ui.theme==='light'?'dark':'light'; persist(); render(); return; }
+  if(kind==='apply-update'){ applyUpdate(); return; }
+  if(kind==='dismiss-update-banner'){ STATE.ui.updateBannerDismissed = true; render(); return; }
+  if(kind==='toggle-auto-refresh'){
+    STATE.ui.autoRefreshOnUpdate = !STATE.ui.autoRefreshOnUpdate;
+    persist(); render();
+    if(STATE.ui.autoRefreshOnUpdate && updateAvailable) applyUpdate();
+    return;
+  }
+  if(kind==='check-for-updates'){
+    if(swRegistration){ swRegistration.update().then(function(){ toast('Checked for updates'); }).catch(function(){ toast('Could not check for updates'); }); }
+    else toast('Service worker not active yet');
+    return;
+  }
+  if(kind==='toggle-avatar-menu'){ STATE.ui.avatarMenuOpen = !STATE.ui.avatarMenuOpen; render(); return; }
+  if(kind==='go-back'){ goBack(); return; }
+  if(kind==='open'){ const id=parts[1]; nav('workspace', findInv(id).type, id, 'summary'); return; }
+
+  if(kind==='new-analysis'){ STATE.ui.modal={type:'new', typeKey:parts[1]}; render(); return; }
+  if(kind==='close-modal' || kind==='overlay-close'){ if(kind==='overlay-close' && e.target!==e.currentTarget) return; STATE.ui.modal=null; render(); return; }
+  if(kind==='create-analysis'){
+    const typeKey = parts[1];
+    const name = document.getElementById('na_name').value.trim();
+    if(!name){ toast('Name is required'); return; }
+    const inv = makeInvestment({
+      type:typeKey, name,
+      identifier: document.getElementById('na_identifier').value.trim(),
+      currency: document.getElementById('na_currency').value.trim()||'USD',
+      country: document.getElementById('na_country').value.trim(),
+      sector: document.getElementById('na_sector').value.trim(),
+      description: document.getElementById('na_desc').value.trim(),
+      status:'Draft',
+    });
+    STATE.investments.unshift(inv);
+    STATE.ui.modal=null;
+    nav('workspace', typeKey, inv.id, 'analysis');
+    return;
+  }
+
+  if(kind==='toggle-watch'){ const inv=findInv(parts[1]); inv.watchlist=!inv.watchlist; touch(inv); flashSave(); return; }
+  if(kind==='delete-analysis'){ STATE.ui.modal={type:'confirmDelete', id:parts[1]}; render(); return; }
+  if(kind==='confirm-delete'){
+    const id = parts[1];
+    const inv = findInv(id);
+    const typeKey = inv? inv.type : null;
+    STATE.investments = STATE.investments.filter(i=>i.id!==id);
+    STATE.ui.modal = null;
+    if(typeKey) nav('analyses', typeKey); else nav('dashboard');
+    toast('Analysis deleted');
+    return;
+  }
+  if(kind==='toggle-cat'){ const id=parts[1], catId=parts[2]; if(!STATE.ui.openCats[id]) STATE.ui.openCats[id]={}; STATE.ui.openCats[id][catId]=!STATE.ui.openCats[id][catId]; render(); return; }
+
+  if(kind==='set-score'){ const id=parts[1], catId=parts[2], crId=parts[3], v=parseInt(parts[4]); const inv=findInv(id); const c=ensureCriterion(inv,catId,crId); c.score = c.score===v? null : v; touch(inv); flashSave(); return; }
+  if(kind==='set-conf'){ const id=parts[1], catId=parts[2], crId=parts[3], v=parseInt(parts[4]); const inv=findInv(id); const c=ensureCriterion(inv,catId,crId); c.confidence = c.confidence===v? null : v; touch(inv); flashSave(); return; }
+
+  if(kind==='add-evidence'){ STATE.ui.modal={type:'evidence', key:parts.slice(1).join(':')}; render(); return; }
+  if(kind==='confirm-evidence'){ const key=parts.slice(1).join(':'); const val=document.getElementById('ev_input').value.trim(); if(val){ const [id,catId,crId]=key.split('|'); const inv=findInv(id); const c=ensureCriterion(inv,catId,crId); c.evidence.push(val); touch(inv); } STATE.ui.modal=null; flashSave(); return; }
+  if(kind==='rm-evidence'){ const key=parts[1]+':'+parts[2]+':'+parts[3]; const idx=parseInt(parts[4]); const [id,catId,crId]=(parts[1]+'|'+parts[2]+'|'+parts[3]).split('|'); const inv=findInv(id); const c=ensureCriterion(inv,catId,crId); c.evidence.splice(idx,1); touch(inv); flashSave(); return; }
+
+  if(kind==='score-explain'){ STATE.ui.modal={type:'scoreExplain', id:parts[1]}; render(); return; }
+
+  if(kind==='save-version'){
+    const inv = findInv(parts[1]); const f=FRAMEWORKS[inv.type]; const w=currentFrameworkWeights(inv.type);
+    const os = overallScore(inv.analysis,f,w);
+    inv.analysis.versions.push({ts:Date.now(), overallScore:os, note:'Manual snapshot'});
+    touch(inv); flashSave(); return;
+  }
+
+  if(kind==='reset-weights'){ delete STATE.frameworkOverrides[parts[1]]; render(); return; }
+
+  if(kind==='export-data'){
+    const payload = { exportedAt: new Date().toISOString(), investments: STATE.investments, frameworkOverrides: STATE.frameworkOverrides };
+    const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'keel-export-'+new Date().toISOString().slice(0,10)+'.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Export downloaded');
+    return;
+  }
+  if(kind==='trigger-import'){ const el=document.getElementById('import-file-input'); if(el) el.click(); return; }
+
+  if(kind==='github-save-connection'){
+    const repo = (document.getElementById('gh_repo')||{}).value || '';
+    const branch = (document.getElementById('gh_branch')||{}).value || 'main';
+    const token = (document.getElementById('gh_token')||{}).value || '';
+    if(!repo || !token){ toast('Repo and token are required'); return; }
+    STATE.github = { connected:true, repo:repo.trim(), branch:branch.trim()||'main', token:token.trim(), lastSync:null, autoSync:true };
+    persist(); render();
+    toast('GitHub connection saved');
+    return;
+  }
+  if(kind==='github-disconnect'){ clearTimeout(autoSyncTimer); STATE.github = { connected:false, repo:'', branch:'main', token:'', lastSync:null, autoSync:true }; persist(); render(); toast('Disconnected'); return; }
+  if(kind==='github-push'){ githubPush(); return; }
+  if(kind==='toggle-autosync'){ STATE.github.autoSync = !STATE.github.autoSync; if(STATE.github.autoSync) scheduleAutoSync(); else clearTimeout(autoSyncTimer); persist(); render(); return; }
+
+  if(kind==='clear-demo' || kind==='clear-all'){
+    STATE.investments = kind==='clear-all'? [] : STATE.investments.filter(i=>false);
+    if(kind==='clear-all'){ STATE.frameworkOverrides={}; }
+    STATE.ui.isDemo=false;
+    persist(); render();
+    toast(kind==='clear-all'?'App reset':'Sample data cleared');
+    return;
+  }
+}
+function toast(msg){ STATE.ui.toast=msg; render(); setTimeout(()=>{ STATE.ui.toast=null; render(); }, 2600); }
+
+let ghNoticeShown = false;
+async function githubPush(opts){
+  opts = opts || {};
+  const gh = STATE.github;
+  if(!gh.connected){ if(!opts.silent) toast('Connect GitHub first'); return; }
+  const [owner, repoName] = (gh.repo||'').split('/');
+  if(!owner || !repoName){ if(!opts.silent) toast('Repo must be in the form owner/repo'); return; }
+  const path = 'keel-data.json';
+  const apiBase = `https://api.github.com/repos/${owner}/${repoName}/contents/${path}`;
+  const payload = { exportedAt:new Date().toISOString(), investments:STATE.investments, frameworkOverrides:STATE.frameworkOverrides };
+  const content = btoa(unescape(encodeURIComponent(JSON.stringify(payload,null,2))));
+  if(!opts.silent) toast('Pushing to GitHub…');
+  try{
+    let sha;
+    const getRes = await fetch(apiBase+`?ref=${encodeURIComponent(gh.branch)}`, { headers:{ 'Authorization':'Bearer '+gh.token, 'Accept':'application/vnd.github+json' } });
+    if(getRes.status===200){ const j = await getRes.json(); sha = j.sha; }
+    else if(getRes.status!==404){ throw new Error('GitHub responded '+getRes.status); }
+    const putRes = await fetch(apiBase, {
+      method:'PUT',
+      headers:{ 'Authorization':'Bearer '+gh.token, 'Accept':'application/vnd.github+json', 'Content-Type':'application/json' },
+      body: JSON.stringify({ message:'Keel data sync: '+new Date().toISOString(), content, branch:gh.branch, sha }),
+    });
+    if(!putRes.ok){ const t = await putRes.text(); throw new Error('GitHub responded '+putRes.status+': '+t.slice(0,140)); }
+    STATE.github.lastSync = Date.now();
+    ghNoticeShown = false;
+    persist(); render();
+    if(!opts.silent) toast('Pushed to GitHub');
+  }catch(err){
+    if(!opts.silent || !ghNoticeShown){
+      toast('Push failed. This only works once the file is downloaded and opened outside Claude\'s preview. '+(err&&err.message?err.message:''));
+      ghNoticeShown = true;
+    }
+  }
+}
+
+/* ============================================================
+   SERVICE WORKER UPDATE LIFECYCLE
+============================================================ */
+let swRegistration = null;
+let updateAvailable = false;
+
+function applyUpdate(){
+  if(swRegistration && swRegistration.waiting){
+    swRegistration.waiting.postMessage('SKIP_WAITING');
+  }
+}
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('./service-worker.js').then(function(reg){
+      swRegistration = reg;
+      if(reg.waiting && navigator.serviceWorker.controller){
+        updateAvailable = true;
+        if(STATE.ui.autoRefreshOnUpdate) applyUpdate(); else render();
+      }
+      reg.addEventListener('updatefound', function(){
+        const newWorker = reg.installing;
+        if(!newWorker) return;
+        newWorker.addEventListener('statechange', function(){
+          if(newWorker.state==='installed' && navigator.serviceWorker.controller){
+            updateAvailable = true;
+            STATE.ui.updateBannerDismissed = false;
+            if(STATE.ui.autoRefreshOnUpdate) applyUpdate(); else render();
+          }
+        });
+      });
+    }).catch(function(){});
+
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function(){
+      if(refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
+  });
+}
+
+/* ============================================================
+   BOOT
+============================================================ */
+initState();
+render();
+</script>
+</body>
+</html>

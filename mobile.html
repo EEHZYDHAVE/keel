@@ -1,0 +1,1621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Keel</title>
+<meta name="description" content="A personal investment research and decision support workspace, on your phone.">
+<link rel="manifest" href="manifest-mobile.json">
+<meta name="theme-color" content="#0A0D12">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Keel">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0A0D12; --surface:#10141B; --surface2:#141922; --elevated:#1A2029; --overlay:#0A0D12E6;
+  --border:#222836; --border-soft:#1A2029;
+  --text:#E7EAF0; --text2:#9AA4B6; --muted:#616B7D;
+  --accent:#5B8DEF; --accent-soft:#5B8DEF1F; --accent-dim:#3E5C99;
+  --positive:#39B978; --positive-soft:#39B9781A;
+  --negative:#E15A63; --negative-soft:#E15A631A;
+  --warning:#D6A544; --warning-soft:#D6A5441A;
+  --purple:#8C7EF0; --purple-soft:#8C7EF01A;
+  --radius:12px; --radius-sm:9px;
+  --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --tabbar-h:58px;
+}
+:root:not([data-theme="light"]){ color-scheme:dark; }
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:#F5F6F8; --surface:#FFFFFF; --surface2:#F1F3F6; --elevated:#E9ECF1; --overlay:#1B222EE6;
+  --border:#DEE2E9; --border-soft:#E7EAEF;
+  --text:#161B24; --text2:#565F70; --muted:#8991A1;
+  --accent:#3E68C9; --accent-soft:#3E68C91A; --accent-dim:#7C99DE;
+  --positive:#1E9A5C; --positive-soft:#1E9A5C17;
+  --negative:#D5424B; --negative-soft:#D5424B17;
+  --warning:#B4791E; --warning-soft:#B4791E17;
+  --purple:#6D5CDB; --purple-soft:#6D5CDB17;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
+body{
+  margin:0; background:var(--bg); color:var(--text); font-family:var(--font);
+  font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased;
+  overscroll-behavior-y:none;
+}
+::-webkit-scrollbar{display:none;}
+a{color:inherit;}
+button{font-family:inherit;}
+input,textarea,select{font-family:inherit;}
+.num{font-variant-numeric:tabular-nums;}
+
+#app{min-height:100vh; display:flex; flex-direction:column;}
+
+/* ---------- top app bar ---------- */
+.appbar{
+  position:sticky; top:0; z-index:30; background:var(--bg);
+  padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px;
+  display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--border-soft);
+  min-height:52px;
+}
+.appbar-btn{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--text2);flex:none;}
+.appbar-btn:active{background:var(--elevated);}
+.appbar-title{font-size:16px;font-weight:700;letter-spacing:-.01em;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.appbar-sub{font-size:11px;color:var(--muted);font-weight:500;}
+.appbar-brand{display:flex;align-items:center;gap:9px;flex:1;}
+.appbar-brand .mark{width:26px;height:26px;border-radius:7px;background:linear-gradient(155deg,var(--accent),var(--purple));display:flex;align-items:center;justify-content:center;flex:none;}
+.appbar-brand .mark svg{width:14px;height:14px;}
+.update-banner{background:var(--accent-soft);border-bottom:1px solid var(--accent-dim);color:var(--text);font-size:12px;padding:9px 14px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:25;}
+.update-banner span{flex:1;line-height:1.4;}
+.update-banner .btn{padding:6px 11px;font-size:11.5px;min-height:auto;flex:none;}
+.update-banner .dismiss{cursor:pointer;color:var(--text2);width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:6px;flex:none;}
+
+/* ---------- content ---------- */
+.screen{flex:1; padding:14px 14px calc(90px + env(safe-area-inset-bottom,0px)); }
+.screen-narrow{max-width:560px;margin:0 auto;width:100%;}
+
+/* ---------- bottom tab bar ---------- */
+.tabbar{
+  position:fixed; left:0; right:0; bottom:0; z-index:40; background:var(--surface);
+  border-top:1px solid var(--border-soft); display:flex;
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+.tabbar-item{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; padding:8px 0 7px; color:var(--muted);}
+.tabbar-item svg{width:20px;height:20px;}
+.tabbar-item span{font-size:10px;font-weight:600;}
+.tabbar-item.active{color:var(--accent);}
+
+/* ---------- cards / kpis ---------- */
+.card{background:var(--surface); border:1px solid var(--border-soft); border-radius:var(--radius); padding:14px;}
+.card + .card{margin-top:10px;}
+.section-title{font-size:11.5px;font-weight:700;color:var(--text2);margin:20px 0 8px;letter-spacing:.01em;}
+.section-title:first-child{margin-top:0;}
+.kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.kpi-mini{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius);padding:12px;}
+.kpi-mini-top{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.kpi-mini-icon{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex:none;}
+.kpi-mini-icon svg{width:13px;height:13px;}
+.kpi-mini-val{font-size:20px;font-weight:800;}
+.kpi-mini-lbl{font-size:10.5px;color:var(--muted);margin-top:1px;}
+
+/* ---------- inv card list ---------- */
+.inv-card{display:flex;align-items:center;gap:11px;padding:12px 4px;border-bottom:1px solid var(--border-soft);}
+.inv-card:last-child{border-bottom:none;}
+.inv-avatar{width:38px;height:38px;border-radius:10px;background:var(--elevated);border:1px solid var(--border-soft);display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:700;color:var(--text2);flex:none;}
+.inv-main{flex:1;min-width:0;}
+.inv-name{font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.inv-sub{font-size:11px;color:var(--muted);margin-top:1px;}
+.inv-badges{display:flex;gap:5px;margin-top:5px;}
+.inv-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex:none;}
+
+.pill{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;}
+.pill.s-high{background:var(--positive-soft);color:var(--positive);}
+.pill.s-mid{background:var(--warning-soft);color:var(--warning);}
+.pill.s-low{background:var(--negative-soft);color:var(--negative);}
+.pill.s-neu{background:var(--elevated);color:var(--text2);}
+
+.status-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;}
+.status-badge::before{content:"";width:5px;height:5px;border-radius:50%;}
+.st-draft{background:var(--elevated);color:var(--text2);}.st-draft::before{background:var(--muted);}
+.st-inprogress{background:var(--accent-soft);color:var(--accent);}.st-inprogress::before{background:var(--accent);}
+.st-complete{background:var(--positive-soft);color:var(--positive);}.st-complete::before{background:var(--positive);}
+.st-needsreview{background:var(--negative-soft);color:var(--negative);}.st-needsreview::before{background:var(--negative);}
+.st-watching{background:var(--purple-soft);color:var(--purple);}.st-watching::before{background:var(--purple);}
+.st-archived{background:var(--elevated);color:var(--muted);}.st-archived::before{background:var(--muted);}
+
+/* ---------- research hub ---------- */
+.type-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.type-card{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius);padding:16px 14px;display:flex;flex-direction:column;gap:10px;}
+.type-card-icon{width:36px;height:36px;border-radius:10px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;}
+.type-card-icon svg{width:17px;height:17px;}
+.type-card-lbl{font-size:13px;font-weight:700;}
+.type-card-count{font-size:11px;color:var(--muted);}
+
+/* ---------- segmented control ---------- */
+.segctl{display:flex;gap:2px;background:var(--surface2);border-radius:20px;padding:3px;overflow-x:auto;margin-bottom:14px;}
+.segctl-item{flex:none;padding:7px 14px;font-size:12px;font-weight:600;color:var(--text2);border-radius:18px;white-space:nowrap;}
+.segctl-item.active{background:var(--accent);color:#fff;}
+.chip-row{display:flex;gap:7px;overflow-x:auto;margin-bottom:12px;padding-bottom:2px;}
+.chip{flex:none;padding:7px 13px;font-size:12px;font-weight:600;color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:20px;}
+.chip.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+
+/* ---------- search field ---------- */
+.field-search{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:10px 14px;margin-bottom:12px;}
+.field-search svg{width:15px;height:15px;color:var(--muted);flex:none;}
+.field-search input{background:none;border:none;color:var(--text);font-size:13.5px;width:100%;}
+.field-search input::placeholder{color:var(--muted);}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:700;padding:11px 16px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text);min-height:44px;}
+.btn svg{width:14px;height:14px;}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+.btn-ghost{background:none;border-color:transparent;color:var(--text2);}
+.btn-danger{color:var(--negative);}
+.btn-block{width:100%;}
+.btn-sm{padding:7px 12px;font-size:12px;min-height:36px;}
+.fab{position:fixed;right:16px;bottom:calc(var(--tabbar-h) + 18px + env(safe-area-inset-bottom,0px));width:52px;height:52px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 20px #00000066;z-index:35;}
+.fab svg{width:22px;height:22px;}
+
+/* ---------- radial / summary ---------- */
+.radial{position:relative;width:104px;height:104px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;}
+.radial-inner{position:absolute;inset:8px;border-radius:50%;background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.radial-val{font-size:24px;font-weight:800;line-height:1;}
+.radial-of{font-size:9.5px;color:var(--muted);margin-top:2px;}
+.cat-row{display:flex;align-items:center;gap:8px;padding:5px 0;}
+.cat-row .dot{width:6px;height:6px;border-radius:50%;flex:none;}
+.cat-row .nm{flex:1;font-size:12px;color:var(--text2);}
+
+/* ---------- accordion / assessment ---------- */
+.accordion{border:1px solid var(--border-soft);border-radius:var(--radius);margin-bottom:9px;overflow:hidden;}
+.acc-head{display:flex;align-items:center;gap:10px;padding:13px 14px;}
+.acc-chev{width:14px;height:14px;color:var(--muted);flex:none;transition:transform .12s ease;}
+.accordion.open .acc-chev{transform:rotate(90deg);}
+.acc-title{font-weight:700;font-size:13px;flex:1;min-width:0;}
+.acc-title .tag{font-size:9px;color:var(--negative);background:var(--negative-soft);padding:1px 6px;border-radius:20px;margin-left:6px;font-weight:700;}
+.acc-score{font-size:12px;font-weight:700;color:var(--text2);}
+.acc-body{padding:0 14px 12px;border-top:1px solid var(--border-soft);}
+.progress-track{width:38px;height:4px;border-radius:4px;background:var(--elevated);overflow:hidden;flex:none;}
+.progress-fill{height:100%;background:var(--accent);}
+
+.criterion{border-top:1px solid var(--border-soft);padding:14px 0;}
+.criterion:first-child{border-top:none;}
+.crit-name{font-size:13px;font-weight:700;margin-bottom:10px;}
+.crit-field-lbl{font-size:10.5px;color:var(--muted);font-weight:700;letter-spacing:.02em;margin-bottom:7px;}
+.scale{display:flex;gap:6px;margin-bottom:3px;}
+.scale-btn{flex:1;height:40px;border-radius:9px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+.scale-btn.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+.scale-btn.risk.on{background:var(--positive);border-color:var(--positive);}
+.scale-conf .scale-btn{height:34px;font-size:12px;}
+.scale-hint{font-size:10.5px;color:var(--muted);margin:5px 0 12px;}
+.crit-block{margin-bottom:12px;}
+textarea.reason{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:13px;padding:10px 12px;resize:vertical;min-height:60px;font-family:var(--font);line-height:1.55;}
+.evidence-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.evidence-chip{font-size:11px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:5px 10px;color:var(--text2);display:flex;align-items:center;gap:6px;}
+.evidence-chip button{background:none;border:none;color:var(--muted);font-size:13px;line-height:1;padding:0;}
+.add-evidence{font-size:12px;color:var(--accent);display:inline-flex;align-items:center;gap:4px;margin-top:9px;font-weight:600;}
+
+.metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:16px;}
+.metric-box{background:var(--surface2);border:1px solid var(--border-soft);border-radius:var(--radius-sm);padding:10px 12px;}
+.metric-box label{display:block;font-size:10px;color:var(--muted);font-weight:700;margin-bottom:5px;}
+.metric-box input{width:100%;background:none;border:none;color:var(--text);font-size:14px;font-weight:700;padding:0;font-variant-numeric:tabular-nums;}
+.metric-box input::placeholder{color:var(--muted);font-weight:500;font-size:12px;}
+.field-full{margin-bottom:14px;}
+.field-full label{display:block;font-size:11.5px;color:var(--text2);font-weight:700;margin-bottom:7px;}
+.field-full textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:13.5px;padding:11px 13px;resize:vertical;min-height:80px;font-family:var(--font);line-height:1.55;}
+.field-full input[type=text],.field-full input[type=date],.field-full select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:13.5px;padding:11px 13px;min-height:44px;}
+
+.callout{background:var(--surface2);border:1px solid var(--border-soft);border-left:3px solid var(--accent);border-radius:var(--radius-sm);padding:11px 13px;font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5;}
+.callout.warn{border-left-color:var(--warning);}
+.caveat{font-size:10.5px;color:var(--muted);display:flex;align-items:flex-start;gap:5px;margin-top:10px;line-height:1.5;}
+.caveat svg{width:12px;height:12px;flex:none;margin-top:1px;}
+
+.risk-mini{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border-soft);}
+.risk-mini:last-child{border-bottom:none;}
+.risk-mini .nm{font-size:12px;color:var(--text2);}
+
+/* ---------- sheets / overlays ---------- */
+.sheet-overlay{position:fixed;inset:0;background:var(--overlay);z-index:100;display:flex;flex-direction:column;justify-content:flex-end;}
+.sheet{background:var(--surface);border-radius:16px 16px 0 0;max-height:88vh;overflow-y:auto;padding:16px 16px calc(20px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--border);}
+.sheet-grab{width:36px;height:4px;border-radius:3px;background:var(--border);margin:0 auto 14px;}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.sheet-title{font-size:16px;font-weight:800;}
+.sheet-close{width:30px;height:30px;border-radius:50%;background:var(--elevated);display:flex;align-items:center;justify-content:center;color:var(--text2);}
+.full-screen{position:fixed;inset:0;background:var(--bg);z-index:100;display:flex;flex-direction:column;}
+.full-screen .screen{padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));}
+
+.form-field{margin-bottom:14px;}
+.form-field label{display:block;font-size:11.5px;color:var(--text2);font-weight:700;margin-bottom:7px;}
+.form-field input,.form-field select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:14px;padding:12px 13px;min-height:46px;}
+
+.theme-switch{width:38px;height:22px;border-radius:20px;background:var(--border);position:relative;flex:none;}
+.theme-switch .knob{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:var(--text);transition:transform .15s ease;}
+.theme-switch.on{background:var(--accent);}
+.theme-switch.on .knob{transform:translateX(16px);background:#fff;}
+.row-toggle{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border-soft);}
+.row-toggle:last-child{border-bottom:none;}
+.row-toggle-main{font-size:13px;font-weight:600;}
+.row-toggle-sub{font-size:11px;color:var(--muted);margin-top:2px;max-width:230px;}
+
+.toast{position:fixed;left:16px;right:16px;bottom:calc(var(--tabbar-h) + 14px + env(safe-area-inset-bottom,0px));background:var(--elevated);border:1px solid var(--border);padding:11px 16px;border-radius:12px;font-size:12.5px;z-index:200;text-align:center;box-shadow:0 8px 24px #00000055;}
+
+.empty-state{padding:40px 16px;text-align:center;}
+.empty-state svg{width:30px;height:30px;color:var(--muted);margin-bottom:10px;}
+.empty-title{font-size:13.5px;font-weight:700;margin-bottom:4px;}
+.empty-sub{font-size:12px;color:var(--muted);max-width:280px;margin:0 auto 14px;}
+.muted{color:var(--muted);}
+.text2{color:var(--text2);}
+.hr{height:1px;background:var(--border-soft);margin:16px 0;}
+.search-results-list .sr-item{display:flex;align-items:center;gap:11px;padding:12px 4px;border-bottom:1px solid var(--border-soft);}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const ICONS = {
+  logo:'<svg viewBox="0 0 24 24" fill="none"><path d="M4 18V10M12 18V4M20 18v-6" stroke="white" stroke-width="2.3" stroke-linecap="round"/></svg>',
+  dashboard:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
+  stock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 17l5-6 4 3 6-8" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 6h4v4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  bond:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M8 14h3" stroke-linecap="round"/></svg>',
+  bondfund:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="8" height="6" rx="1.3"/><rect x="13" y="5" width="8" height="6" rx="1.3"/><rect x="3" y="13" width="8" height="6" rx="1.3"/><rect x="13" y="13" width="8" height="6" rx="1.3"/></svg>',
+  equityfund:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.3"/><path d="M12 3.7V12l6 3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  indexfund:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V9M10 19V5M16 19v-7M21 19H3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  star:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l2.7 5.9 6.3.7-4.7 4.4 1.3 6.3L12 17.2 6.4 20.3l1.3-6.3L3 9.6l6.3-.7z" stroke-linejoin="round"/></svg>',
+  clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2" stroke-linecap="round"/></svg>',
+  alert:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10.6 3.9L2.7 18a1.8 1.8 0 0 0 1.6 2.7h15.4a1.8 1.8 0 0 0 1.6-2.7L13.4 3.9a1.8 1.8 0 0 0-2.8 0z"/><path d="M12 9.5v4.2M12 16.8h.01" stroke-linecap="round"/></svg>',
+  framework:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h9" stroke-linecap="round"/></svg>',
+  settings:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15 1.65 1.65 0 0 0 3.17 14H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06A2 2 0 1 1 7.04 4.3l.06.06A1.65 1.65 0 0 0 8.92 4.7H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.3 9c.14.36.4.66.75.82.14.06.29.1.45.1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+  search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7.5"/><path d="M21 21l-4.3-4.3" stroke-linecap="round"/></svg>',
+  bell:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 8a6 6 0 1 1 12 0c0 5 2 6.5 2 6.5H4S6 13 6 8z" stroke-linejoin="round"/><path d="M9.5 19a2.5 2.5 0 0 0 5 0" stroke-linecap="round"/></svg>',
+  chevron:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  chevronL:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M11 5l-6 7 6 7M5 5l6 7-6 7" stroke-linecap="round" stroke-linejoin="round" opacity="0"/><path d="M15 5l-7 7 7 7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>',
+  x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg>',
+  info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 8v.01" stroke-linecap="round"/></svg>',
+  inbox:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12h5l2 3h4l2-3h5M5 5h14l2 7v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7l2-7z" stroke-linejoin="round"/></svg>',
+  moon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.8 6.8 0 0 0 10.5 10.5z" stroke-linejoin="round"/></svg>',
+  sun:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4.3"/><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" stroke-linecap="round"/></svg>',
+  github:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.5v-1.77c-2.78.62-3.37-1.37-3.37-1.37-.46-1.2-1.11-1.52-1.11-1.52-.9-.64.07-.63.07-.63 1 .07 1.53 1.05 1.53 1.05.9 1.57 2.34 1.12 2.91.85.09-.67.35-1.12.64-1.38-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.31.1-2.74 0 0 .84-.28 2.75 1.05a9.3 9.3 0 0 1 5 0c1.9-1.33 2.74-1.05 2.74-1.05.56 1.43.21 2.48.1 2.74.65.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.79-4.57 5.05.36.32.68.94.68 1.9v2.82c0 .28.18.61.69.5C19.14 20.6 22 16.77 22 12.25 22 6.58 17.52 2 12 2z"/></svg>',
+  download:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v13m0 0l-4.5-4.5M12 16l4.5-4.5M4 19.5h16" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  upload:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20V7m0 0l-4.5 4.5M12 7l4.5 4.5M4 19.5h16" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  clip:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21.4 11.3L12.7 20a4.5 4.5 0 1 1-6.4-6.4l8.4-8.4a3 3 0 1 1 4.2 4.2l-8.4 8.4a1.5 1.5 0 1 1-2.1-2.1l7.8-7.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+};
+function icon(name,cls){return `<span class="${cls||''}" style="display:inline-flex">${ICONS[name]||''}</span>`;}
+let CRIT_SEQ=0;
+function crit(name,type){ return {id:'c'+(++CRIT_SEQ), name, type:type||'score'}; }
+function cat(id,name,weight,names,tags){
+  return { id, name, weight, tags:tags||[], criteria:names.map(n=>crit(n)) };
+}
+function fw(key,label,unitLabel,categories,valuationFields,riskExtra){
+  return { key, label, unitLabel, categories, valuationFields:valuationFields||[], riskExtra:riskExtra||[] };
+}
+const FRAMEWORKS = {
+  stock: fw('stock','Individual Stock Framework','company',[
+    cat('bu','Business Understanding',10,['Business Model','Revenue Quality','Pricing Power','Customer Base','Operational Efficiency','Supply / Input Risk','Capital Requirements','Cash Generation Potential','Business Durability']),
+    cat('ind','Industry & Competitive Environment',8,['Industry Growth','Industry Profitability','Industry Competition','Barriers to Entry','Threat of Substitutes','Regulatory Environment','Cyclicality','Technological Disruption Risk','Market Share Position','Market Share Trend']),
+    cat('fp','Financial Performance',15,['Revenue Growth Quality','Profitability','Margin Trend','Cash Flow Quality','Earnings Quality','Return on Capital']),
+    cat('fs','Financial Strength',10,['Balance Sheet Strength','Debt Sustainability','Liquidity','Downturn Resilience','Refinancing Risk']),
+    cat('mgmt','Management & Capital Allocation',10,['Management Quality','Management Track Record','Capital Allocation','Reinvestment Quality','Acquisition Discipline','Dividend Policy','Share Buyback Discipline','Share Dilution','Management Incentives','Governance / Shareholder Alignment']),
+    cat('ca','Competitive Advantage',12,['Brand Strength','Cost Advantage','Network Effects','Switching Costs','Scale Advantage','Intellectual Property','Distribution Advantage','Advantage Reflected in Economics'],['valuation_adj']),
+    cat('val','Valuation',18,['Valuation Attractiveness','Expectations Embedded in Price'],['valuation']),
+    cat('risk','Risk',10,['Business Risk','Financial Risk','Competitive Risk','Management Risk','Regulatory Risk','Country Risk','Currency Risk','Technology / Disruption Risk','Customer Concentration Risk','Liquidity Risk','Valuation Risk'],['risk']),
+    cat('ret','Expected Return',4,['Expected Return Assessment']),
+    cat('fit','Portfolio Fit',3,['Diversification Contribution','Existing Exposure','Sector Concentration','Geographic Concentration','Currency Exposure','Position Size Suitability']),
+  ], ['Share Price','Market Cap','P/E','Forward P/E','EV/EBITDA','P/B','P/S','Price/FCF','FCF Yield','Dividend Yield']),
+
+  bond: fw('bond','Individual Bond Framework','bond',[
+    cat('iss','Issuer Analysis',12,['Issuer Financial Strength','Revenue / Income Stability','Cash Flow Strength','Liquidity Position','Debt Burden','Ability to Service Existing Debt','Refinancing Dependence','Historical Repayment Record','Overall Issuer Resilience']),
+    cat('terms','Bond Terms & Structure',8,['Bond Structure Quality']),
+    cat('credit','Credit Quality',20,['Probability of Default Assessment','Debt Sustainability','Interest Payment Capacity','Principal Repayment Capacity','Balance-Sheet Resilience','Refinancing Risk','Credit Trend','Overall Credit Quality'],['valuation_adj']),
+    cat('dur','Interest-Rate & Duration Risk',15,['Duration Risk','Interest-Rate Sensitivity','Reinvestment Risk','Maturity Suitability'],['risk']),
+    cat('yield','Yield & Expected Return',20,['Yield Attractiveness','Yield Compensation for Risk'],['valuation']),
+    cat('infl','Inflation & Currency Risk',10,['Inflation Protection','Real Return Resilience','Currency Risk','Currency Alignment'],['risk']),
+    cat('liq','Liquidity',5,['Secondary Market Liquidity','Ease of Selling','Bid-Ask Cost','Liquidity Suitability']),
+    cat('addrisk','Additional Bond Risks',5,['Default Risk','Credit Downgrade Risk','Call Risk','Political / Sovereign Risk','Regulatory Risk'],['risk']),
+    cat('fit','Portfolio Fit',5,['Diversification Contribution','Issuer Concentration','Duration Concentration','Credit Concentration','Maturity Match']),
+  ], ['Face Value','Purchase Price','Coupon Rate','Current Yield','Yield to Maturity','Duration','Years to Maturity','Credit Rating']),
+
+  bondfund: fw('bondfund','Bond Mutual Fund Framework','fund',[
+    cat('mandate','Fund Mandate & Structure',8,['Mandate Clarity','Strategy Suitability','Mandate Consistency','Transparency']),
+    cat('port','Portfolio Composition',15,['Diversification','Issuer Concentration','Geographic Diversification','Currency Diversification','Portfolio Quality','Portfolio Alignment With Mandate']),
+    cat('credit','Credit Quality',15,['Overall Credit Quality','Credit Diversification','Default Risk','Credit Quality Trend','Resilience of Underlying Issuers'],['valuation_adj']),
+    cat('dur','Interest-Rate & Duration Risk',15,['Duration Risk','Interest-Rate Sensitivity','Maturity Risk','Reinvestment Risk'],['risk']),
+    cat('yield','Yield & Return',12,['Yield Attractiveness','Distribution vs Total Return Clarity'],['valuation']),
+    cat('mgr','Fund Manager & Investment Process',10,['Manager Experience','Investment Process','Credit Analysis Process','Risk Management','Team Stability']),
+    cat('perf','Performance',8,['Long-Term Performance','Benchmark Performance','Risk-Adjusted Performance','Downside Behavior']),
+    cat('liq','Liquidity',5,['Investor Liquidity','Underlying Asset Liquidity','Redemption Resilience']),
+    cat('cost','Costs & Tax',5,['Cost Reasonableness','Fee Transparency']),
+    cat('infl','Inflation & Currency Risk',4,['Inflation Resilience','Currency Risk','Currency Diversification'],['risk']),
+    cat('addrisk','Additional Risks',3,['Concentration Risk','Manager Risk','Operational Risk'],['risk']),
+    cat('fit','Portfolio Fit',5,['Diversification Contribution','Credit Concentration','Duration Concentration','Liquidity Fit']),
+  ], ['NAV / Price','Fund Yield','Yield to Maturity (Portfolio)','Average Duration','Average Credit Rating','Distribution Yield','Expense Ratio','AUM']),
+
+  equityfund: fw('equityfund','Equity Mutual Fund Framework','fund',[
+    cat('mandate','Fund Mandate & Structure',8,['Mandate Clarity','Strategy Suitability','Mandate Consistency','Transparency']),
+    cat('port','Portfolio Composition',15,['Diversification','Concentration','Sector Diversification','Geographic Diversification','Market-Cap Diversification','Alignment With Fund Mandate']),
+    cat('strat','Investment Strategy',12,['Strategy Clarity','Strategy Coherence','Strategy Repeatability','Philosophy Consistency','Differentiation']),
+    cat('uq','Underlying Company Quality',12,['Business Quality','Profitability','Earnings Quality','Cash Generation','Competitive Advantages','Growth Quality']),
+    cat('mgr','Manager & Investment Process',15,['Manager Experience','Investment Process','Security Selection','Risk Management','Team Stability']),
+    cat('perf','Performance & Benchmark',15,['Long-Term Performance','Benchmark Performance','Risk-Adjusted Performance','Downside Management','Benchmark Appropriateness']),
+    cat('risk','Risk',10,['Market Risk','Concentration Risk','Sector Risk','Geographic Risk','Currency Risk','Small-Cap Risk','Manager Risk','Valuation Risk'],['risk']),
+    cat('cost','Costs & Tax',6,['Cost Reasonableness','Fee Transparency'],['valuation']),
+    cat('geo','Geographic & Currency Exposure',2,['Geographic Diversification','Currency Diversification','Currency Risk']),
+    cat('fit','Portfolio Fit',5,['Diversification Contribution','Existing Overlap','Sector Fit','Risk Fit','Expected Return Fit']),
+  ], ['NAV / Price','Portfolio P/E','Forward P/E','P/B','Dividend Yield','Expense Ratio','AUM','1Y Return','3Y Annualized Return']),
+
+  indexfund: fw('indexfund','Index Fund Framework','fund',[
+    cat('idx','Index Objective & Methodology',15,['Index Objective Clarity','Methodology Transparency','Methodology Simplicity','Suitability of Methodology','Index Suitability']),
+    cat('comp','Index Composition & Exposure',15,['Composition Transparency','Exposure Suitability']),
+    cat('div','Diversification & Concentration',10,['Company Diversification','Sector Diversification','Geographic Diversification','Concentration Suitability']),
+    cat('impl','Fund Structure & Implementation',10,['Implementation Quality','Structural Simplicity','Transparency','Replication Suitability'],['valuation_adj']),
+    cat('track','Tracking Quality',15,['Tracking Accuracy','Tracking Consistency','Transparency of Tracking Difference'],['valuation']),
+    cat('cost','Costs & Tax',12,['Cost Reasonableness','Fee Transparency'],['valuation']),
+    cat('risk','Risk',10,['Market Risk','Concentration Risk','Sector Risk','Geographic Risk','Currency Risk','Valuation Risk','Tracking Risk','Structural Risk'],['risk']),
+    cat('mkt','Underlying Market Characteristics',5,['Market Quality','Long-Term Growth Characteristics','Valuation Attractiveness','Economic Diversification']),
+    cat('geo','Currency & Geographic Exposure',3,['Geographic Fit','Currency Fit','Currency Diversification']),
+    cat('fit','Portfolio Fit',5,['Diversification Contribution','Existing Overlap','Risk Fit','Expected Return Fit','Portfolio Role Clarity']),
+  ], ['NAV / Price','Expense Ratio','Tracking Difference (1Y)','Number of Holdings','Top 10 Weight %','Index P/E','Dividend Yield','AUM']),
+};
+
+const TYPES = [
+  {key:'stock', label:'Individual Stocks', plural:'Stocks', icon:'stock', idLabel:'Ticker'},
+  {key:'bond', label:'Bonds', plural:'Bonds', icon:'bond', idLabel:'Issuer'},
+  {key:'bondfund', label:'Bond Funds', plural:'Bond Funds', icon:'bondfund', idLabel:'Fund'},
+  {key:'equityfund', label:'Equity Funds', plural:'Equity Funds', icon:'equityfund', idLabel:'Fund'},
+  {key:'indexfund', label:'Index Funds', plural:'Index Funds', icon:'indexfund', idLabel:'Index'},
+];
+function typeInfo(k){ return TYPES.find(t=>t.key===k); }
+
+const STATUSES = ['Draft','In Progress','Complete','Needs Review','Watching','Archived'];
+function statusClass(s){ return 'st-'+s.toLowerCase().replace(/\s/g,''); }
+
+/* ---- scoring profiles: generic reweight by tag ---- */
+function reweight(framework, boosts){
+  const base = framework.categories.map(c=>({id:c.id, w:c.weight, tags:c.tags}));
+  const boosted = base.map(c=>{
+    let factor=1;
+    (c.tags||[]).forEach(t=>{ if(boosts[t]) factor*=boosts[t]; });
+    return {id:c.id, w:c.weight*factor};
+  });
+  const sum = boosted.reduce((a,b)=>a+b.w,0);
+  const out={};
+  boosted.forEach(c=> out[c.id] = Math.round((c.w/sum)*1000)/10 );
+  return out;
+}
+function profilesFor(typeKey){
+  const f = FRAMEWORKS[typeKey];
+  const base = {}; f.categories.forEach(c=> base[c.id]=c.weight);
+  return [
+    {id:'default', name:'Default', weights:base},
+    {id:'risk', name:'Risk Focus', weights: reweight(f,{risk:2.2})},
+    {id:'value', name:'Value / Cost Focus', weights: reweight(f,{valuation:1.9})},
+    {id:'balanced', name:'Quality Focus', weights: reweight(f,{valuation_adj:1.6})},
+  ];
+}
+
+/* ============================================================
+   SCORING HELPERS
+============================================================ */
+function score100(s){ return s==null? null : Math.round(s*20); }
+function categoryAssessments(analysis, catId){ return (analysis.categories[catId] && analysis.categories[catId].criteria) || {}; }
+function categoryScore(analysis, catDef){
+  const a = categoryAssessments(analysis, catDef.id);
+  const scores = catDef.criteria.map(c=> a[c.id] && a[c.id].score).filter(s=>s!=null);
+  if(!scores.length) return null;
+  return scores.reduce((x,y)=>x+y,0)/scores.length;
+}
+function categoryCompletion(analysis, catDef){
+  const a = categoryAssessments(analysis, catDef.id);
+  const total = catDef.criteria.length;
+  const done = catDef.criteria.filter(c=> a[c.id] && a[c.id].score!=null).length;
+  return total? Math.round(done/total*100) : 0;
+}
+function overallCompletion(analysis, framework){
+  let total=0, done=0;
+  framework.categories.forEach(c=>{
+    c.criteria.forEach(cr=>{ total++; const a=categoryAssessments(analysis,c.id); if(a[cr.id]&&a[cr.id].score!=null) done++; });
+  });
+  return total? Math.round(done/total*100) : 0;
+}
+function overallScore(analysis, framework, weights){
+  let total=0, wsum=0;
+  framework.categories.forEach(c=>{
+    const s = categoryScore(analysis,c);
+    const w = (weights&&weights[c.id]!=null)? weights[c.id] : c.weight;
+    if(s!=null){ total += score100(s)*w; wsum+=w; }
+  });
+  if(wsum===0) return null;
+  return Math.round(total/wsum);
+}
+function scoreBand(v){ if(v==null) return 's-neu'; if(v>=75) return 's-high'; if(v>=55) return 's-mid'; return 's-low'; }
+function avgCatScore100(inv, cats){
+  const scores = cats.map(c=>categoryScore(inv.analysis,c)).filter(s=>s!=null);
+  if(!scores.length) return null;
+  return Math.round(score100(scores.reduce((a,b)=>a+b,0)/scores.length));
+}
+function bucketScores(inv){
+  const f = FRAMEWORKS[inv.type];
+  const valCats = f.categories.filter(c=>c.tags.includes('valuation'));
+  const riskCats = f.categories.filter(c=>c.tags.includes('risk'));
+  const qualCats = f.categories.filter(c=>!c.tags.includes('valuation') && !c.tags.includes('risk'));
+  return { quality: avgCatScore100(inv,qualCats), valuation: avgCatScore100(inv,valCats), risk: avgCatScore100(inv,riskCats) };
+}
+function riskBucketLabel(v){ if(v==null) return null; if(v>=75) return {label:'Low', cls:'s-high'}; if(v>=50) return {label:'Medium', cls:'s-mid'}; return {label:'High', cls:'s-low'}; }
+function riskPill(v){ const b=riskBucketLabel(v); return b? `<span class="pill ${b.cls}">${b.label}</span>` : `<span class="muted">-</span>`; }
+function scorePill(v){ return v!=null? `<span class="pill ${scoreBand(v)}">${v}</span>` : `<span class="muted">-</span>`; }
+function riskLabel(s){ if(s==null) return '-'; return ['','Very High','High','Moderate','Low','Very Low'][Math.round(s)]; }
+function fmtDate(ts){ if(!ts) return '-'; const d=new Date(ts); return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}); }
+function fmtDateTime(ts){ const d=new Date(ts); return d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' • '+d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}); }
+function timeAgo(ts){
+  const s=(Date.now()-ts)/1000;
+  if(s<60) return 'just now';
+  if(s<3600) return Math.floor(s/60)+'m ago';
+  if(s<86400) return Math.floor(s/3600)+'h ago';
+  const d=Math.floor(s/86400);
+  if(d<30) return d+'d ago';
+  return fmtDate(ts);
+}
+function initials(name){ return (name||'?').split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
+
+/* ============================================================
+   STATE
+============================================================ */
+let STATE = null;
+const LS_KEY = 'keel_invresearch_v1';
+const LS_KEY_LEGACY = 'ledger_invresearch_v1';
+const APP_VERSION = 'v1'; // keep in sync with CACHE_VERSION suffix in service-worker.js
+
+function newAnalysis(){ return { categories:{}, valuation:{}, riskNotes:{keyRisks:'',lossScenarios:'',whatWouldChangeMind:''}, thesis:{}, versions:[] }; }
+
+function makeInvestment(o){
+  const now = Date.now();
+  return {
+    id:'inv_'+Math.random().toString(36).slice(2,10),
+    type:o.type, name:o.name, identifier:o.identifier||'', country:o.country||'', sector:o.sector||'',
+    currency:o.currency||'USD', description:o.description||'',
+    status:o.status||'Draft', watchlist:!!o.watchlist, reviewDate:o.reviewDate||'',
+    createdAt:now, updatedAt:now, frameworkVersion:1,
+    analysis:o.analysis||newAnalysis(),
+  };
+}
+
+function seedAssess(score,confidence,reasoning){ return {score,confidence,reasoning:reasoning||'',evidence:[]}; }
+
+function buildSeed(){
+  const inv=[];
+  // Stock 1 - Atlas Energy (fairly complete)
+  const a1 = newAnalysis();
+  const sf = FRAMEWORKS.stock;
+  const vals = {bu:4,ind:4,fp:4,fs:4,mgmt:4,ca:4,val:3,risk:3,ret:4,fit:4};
+  sf.categories.forEach(c=>{ a1.categories[c.id]={criteria:{},notes:''};
+    c.criteria.forEach((cr,i)=>{ if(i< c.criteria.length-1 || c.id!=='fit') a1.categories[c.id].criteria[cr.id]=seedAssess(vals[c.id], 4, 'Preliminary judgment based on available filings; to be revisited with updated financials.'); });
+  });
+  a1.valuation = {'Share Price':'64.20','Market Cap':'18.4B','P/E':'14.2','Forward P/E':'12.8','EV/EBITDA':'7.1','FCF Yield':'6.4%','Dividend Yield':'2.1%'};
+  a1.riskNotes = {keyRisks:'Commodity price exposure; regulatory shifts in core operating region.', lossScenarios:'Sustained energy price collapse combined with balance-sheet stress.', whatWouldChangeMind:'Evidence of structurally lower margins or loss of key supply contracts.'};
+  a1.thesis = {thesis:'Diversified energy producer trading below intrinsic value with improving capital discipline.', strengths:'Disciplined capital allocation; strengthening balance sheet.', concerns:'Commodity cyclicality; regulatory overhang.', reviewDate:'2026-12-01'};
+  a1.versions=[{ts:Date.now()-1000*60*60*24*40, overallScore:78, note:'Initial analysis'}];
+  inv.push(makeInvestment({type:'stock', name:'Atlas Energy', identifier:'ATLS', country:'United States', sector:'Energy', currency:'USD', status:'Complete', analysis:a1, description:'Diversified energy producer focused on sustainable production and long-term value creation.'}));
+
+  // Stock 2 - Northstar Systems (in progress)
+  const a2 = newAnalysis();
+  ['bu','ind','fp'].forEach(id=>{ const c=sf.categories.find(x=>x.id===id); a2.categories[id]={criteria:{},notes:''};
+    c.criteria.forEach(cr=> a2.categories[id].criteria[cr.id]=seedAssess(4,3,'')); });
+  a2.valuation={'Share Price':'112.40','P/E':'22.6'};
+  inv.push(makeInvestment({type:'stock', name:'Northstar Systems', identifier:'NST', country:'United States', sector:'Technology', currency:'USD', status:'In Progress', analysis:a2, description:'Enterprise software platform with recurring revenue base.'}));
+
+  // Stock 3 - Summit Healthcare (needs review, watchlist)
+  const a3 = newAnalysis();
+  const c3=sf.categories.find(x=>x.id==='bu'); a3.categories.bu={criteria:{}}; c3.criteria.forEach(cr=>a3.categories.bu.criteria[cr.id]=seedAssess(3,2,''));
+  inv.push(makeInvestment({type:'stock', name:'Summit Healthcare', identifier:'SMT', country:'United States', sector:'Healthcare', currency:'USD', status:'Needs Review', watchlist:true, analysis:a3, reviewDate:'2026-09-18'}));
+
+  // Bond - Ridgeway Materials
+  const ab = newAnalysis(); const bf=FRAMEWORKS.bond;
+  bf.categories.forEach(c=>{ ab.categories[c.id]={criteria:{}}; c.criteria.forEach(cr=> ab.categories[c.id].criteria[cr.id]=seedAssess(4,3,'')); });
+  ab.valuation={'Face Value':'1000','Purchase Price':'974','Coupon Rate':'6.25%','Current Yield':'6.4%','Yield to Maturity':'7.1%','Years to Maturity':'6.4'};
+  inv.push(makeInvestment({type:'bond', name:'Ridgeway Materials 2032', identifier:'Ridgeway Materials', country:'United States', sector:'Corporate', currency:'USD', status:'Complete', analysis:ab, description:'Senior unsecured corporate bond, industrial materials issuer.'}));
+
+  // Bond Fund
+  const abf = newAnalysis(); const bff=FRAMEWORKS.bondfund;
+  ['mandate','port','credit','dur','yield'].forEach(id=>{ const c=bff.categories.find(x=>x.id===id); abf.categories[id]={criteria:{}}; c.criteria.forEach(cr=> abf.categories[id].criteria[cr.id]=seedAssess(3,3,'')); });
+  abf.valuation={'Average Duration':'5.1','Average Credit Rating':'A-','Fund Yield':'5.8%','Expense Ratio':'0.42%'};
+  inv.push(makeInvestment({type:'bondfund', name:'Meridian Core Bond Fund', identifier:'Meridian Core Bond Fund', country:'Global', sector:'Diversified', currency:'USD', status:'In Progress', analysis:abf}));
+
+  // Equity Fund
+  const aef = newAnalysis(); const eff=FRAMEWORKS.equityfund;
+  ['mandate','port','strat'].forEach(id=>{ const c=eff.categories.find(x=>x.id===id); aef.categories[id]={criteria:{}}; c.criteria.forEach(cr=> aef.categories[id].criteria[cr.id]=seedAssess(4,3,'')); });
+  aef.valuation={'Portfolio P/E':'19.4','Expense Ratio':'0.68%','3Y Annualized Return':'11.2%'};
+  inv.push(makeInvestment({type:'equityfund', name:'Vantage Global Quality Fund', identifier:'Vantage Global Quality Fund', country:'Global', sector:'Multi-Sector', currency:'USD', status:'Draft', analysis:aef}));
+
+  // Index Fund
+  const aif = newAnalysis(); const iff=FRAMEWORKS.indexfund;
+  ['idx','comp','div'].forEach(id=>{ const c=iff.categories.find(x=>x.id===id); aif.categories[id]={criteria:{}}; c.criteria.forEach(cr=> aif.categories[id].criteria[cr.id]=seedAssess(4,4,'')); });
+  aif.valuation={'Expense Ratio':'0.05%','Tracking Difference (1Y)':'-0.04%','Number of Holdings':'503','Index P/E':'21.3'};
+  inv.push(makeInvestment({type:'indexfund', name:'Broad Market Index Fund', identifier:'Total Market Index', country:'United States', sector:'Broad Market', currency:'USD', status:'Complete', analysis:aif}));
+
+  return inv;
+}
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(raw) return JSON.parse(raw);
+    const legacy = localStorage.getItem(LS_KEY_LEGACY);
+    if(legacy){ localStorage.setItem(LS_KEY, legacy); localStorage.removeItem(LS_KEY_LEGACY); return JSON.parse(legacy); }
+  }catch(e){}
+  return null;
+}
+function persist(){
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(STATE)); }catch(e){}
+}
+function initState(){
+  const loaded = loadState();
+  if(loaded){
+    STATE = loaded;
+    STATE.ui.theme = STATE.ui.theme || 'dark';
+    STATE.ui.avatarMenuOpen = !!STATE.ui.avatarMenuOpen;
+    STATE.ui.searchOpen = !!STATE.ui.searchOpen;
+    if(STATE.ui.autoRefreshOnUpdate==null) STATE.ui.autoRefreshOnUpdate = false;
+    STATE.ui.updateBannerDismissed = false;
+    STATE.github = STATE.github || { connected:false, repo:'', branch:'main', token:'', lastSync:null, autoSync:true };
+    if(STATE.github.autoSync==null) STATE.github.autoSync = true;
+    return;
+  }
+  STATE = {
+    investments: buildSeed(),
+    frameworkOverrides: {}, // typeKey -> {categoryId: weight}
+    ui: {
+      route:{page:'dashboard', type:null, id:null, tab:'summary'},
+      sidebarCollapsed:false,
+      search:'',
+      filters:{status:'all', q:''},
+      rankProfile:{}, // typeKey -> profileId
+      openCats:{}, // investmentId -> {catId:true}
+      modal:null, // {type:'new'} | {type:'evidence', ...} | {type:'scoreExplain', id}
+      toast:null,
+      savingFlash:false,
+      isDemo:true,
+      theme:'dark',
+      history:[],
+      avatarMenuOpen:false,
+      searchOpen:false,
+      autoRefreshOnUpdate:false,
+      updateBannerDismissed:false,
+    },
+    github: { connected:false, repo:'', branch:'main', token:'', lastSync:null, autoSync:true },
+  };
+  persist();
+}
+
+function currentFrameworkWeights(typeKey){
+  const f = FRAMEWORKS[typeKey];
+  const override = STATE.frameworkOverrides[typeKey];
+  const w={}; f.categories.forEach(c=> w[c.id] = (override && override[c.id]!=null)? override[c.id] : c.weight);
+  return w;
+}
+
+function findInv(id){ return STATE.investments.find(i=>i.id===id); }
+function invsOfType(t){ return STATE.investments.filter(i=>i.type===t); }
+
+function touch(inv){ inv.updatedAt = Date.now(); scheduleAutoSync(); }
+let autoSyncTimer = null;
+function scheduleAutoSync(){
+  if(!STATE.github || !STATE.github.connected || !STATE.github.autoSync) return;
+  clearTimeout(autoSyncTimer);
+  autoSyncTimer = setTimeout(function(){ githubPush({silent:true}); }, 4000);
+}
+function flashSave(){ STATE.ui.savingFlash=true; render(); setTimeout(()=>{ STATE.ui.savingFlash=false; render(); }, 550); }
+function esc(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); }
+function escAttr(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+let ghNoticeShown = false;
+async function githubPush(opts){
+  opts = opts || {};
+  const gh = STATE.github;
+  if(!gh.connected){ if(!opts.silent) toast('Connect GitHub first'); return; }
+  const [owner, repoName] = (gh.repo||'').split('/');
+  if(!owner || !repoName){ if(!opts.silent) toast('Repo must be in the form owner/repo'); return; }
+  const path = 'keel-data.json';
+  const apiBase = `https://api.github.com/repos/${owner}/${repoName}/contents/${path}`;
+  const payload = { exportedAt:new Date().toISOString(), investments:STATE.investments, frameworkOverrides:STATE.frameworkOverrides };
+  const content = btoa(unescape(encodeURIComponent(JSON.stringify(payload,null,2))));
+  if(!opts.silent) toast('Pushing to GitHub…');
+  try{
+    let sha;
+    const getRes = await fetch(apiBase+`?ref=${encodeURIComponent(gh.branch)}`, { headers:{ 'Authorization':'Bearer '+gh.token, 'Accept':'application/vnd.github+json' } });
+    if(getRes.status===200){ const j = await getRes.json(); sha = j.sha; }
+    else if(getRes.status!==404){ throw new Error('GitHub responded '+getRes.status); }
+    const putRes = await fetch(apiBase, {
+      method:'PUT',
+      headers:{ 'Authorization':'Bearer '+gh.token, 'Accept':'application/vnd.github+json', 'Content-Type':'application/json' },
+      body: JSON.stringify({ message:'Keel data sync: '+new Date().toISOString(), content, branch:gh.branch, sha }),
+    });
+    if(!putRes.ok){ const t = await putRes.text(); throw new Error('GitHub responded '+putRes.status+': '+t.slice(0,140)); }
+    STATE.github.lastSync = Date.now();
+    ghNoticeShown = false;
+    persist(); render();
+    if(!opts.silent) toast('Pushed to GitHub');
+  }catch(err){
+    if(!opts.silent || !ghNoticeShown){
+      toast('Push failed. This only works once the file is downloaded and opened outside Claude\'s preview. '+(err&&err.message?err.message:''));
+      ghNoticeShown = true;
+    }
+  }
+}
+
+function statusBadge(s){ return `<span class="status-badge ${statusClass(s)}">${s}</span>`; }
+function catDotColor(catId){
+  const colors=['var(--accent)','var(--purple)','var(--positive)','var(--warning)'];
+  let h=0; for(const c of catId) h+=c.charCodeAt(0);
+  return colors[h%colors.length];
+}
+function radial(score){
+  const pct = score==null? 0 : score;
+  const deg = pct/100*360;
+  const color = score==null?'var(--muted)': score>=75?'var(--positive)':score>=55?'var(--warning)':'var(--negative)';
+  return `<div class="radial" style="background:conic-gradient(${color} ${deg}deg, var(--border-soft) ${deg}deg)">
+    <div class="radial-inner"><div class="radial-val">${score!=null?score:'-'}</div><div class="radial-of">${score!=null?'/ 100':'not scored'}</div></div>
+  </div>`;
+}
+
+ICONS.grid = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="8" height="8" rx="1.6"/><rect x="13" y="3" width="8" height="8" rx="1.6"/><rect x="3" y="13" width="8" height="8" rx="1.6"/><rect x="13" y="13" width="8" height="8" rx="1.6"/></svg>';
+ICONS.trash = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2m3 0-.9 12.2A2 2 0 0 1 15.1 21H8.9a2 2 0 0 1-2-1.8L6 7" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 11v6M14 11v6" stroke-linecap="round"/></svg>';
+ICONS.home = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11.5 12 4l8 7.5V20a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z" stroke-linejoin="round"/></svg>';
+
+/* ============================================================
+   MOBILE SHELL - navigation, app bar, bottom tabs
+============================================================ */
+const root = document.getElementById('app');
+
+function mobileTabFor(route){
+  if(route.page==='dashboard') return 'home';
+  if(route.page==='watchlist') return 'watchlist';
+  if(route.page==='settings') return 'settings';
+  return 'research';
+}
+function parentRoute(route){
+  if(route.page==='workspace') return {page:'analyses', type:route.type, id:null, tab:'summary'};
+  if((route.page==='analyses'||route.page==='rankings'||route.page==='framework') && route.type) return {page:'type', type:route.type, id:null, tab:'summary'};
+  if(route.page==='type') return {page:'research', type:null, id:null, tab:'summary'};
+  return {page:'dashboard', type:null, id:null, tab:'summary'};
+}
+function nav(page,type,id,tab){
+  STATE.ui.route = {page, type:type||null, id:id||null, tab:tab||'summary'};
+  STATE.ui.searchOpen = false;
+  render();
+  window.scrollTo(0,0);
+}
+function goBack(){ STATE.ui.route = parentRoute(STATE.ui.route); render(); window.scrollTo(0,0); }
+
+function render(){
+  persist();
+  document.documentElement.setAttribute('data-theme', STATE.ui.theme==='light'?'light':'dark');
+  root.innerHTML = shellHtml();
+  bindEvents();
+}
+
+function shellHtml(){
+  const searchScreen = !!STATE.ui.searchOpen;
+  const newScreen = !!(STATE.ui.modal && STATE.ui.modal.type==='new');
+  const showChrome = !searchScreen && !newScreen;
+  let out = '';
+  if(showChrome && updateAvailable && !STATE.ui.updateBannerDismissed) out += updateBannerHtml();
+  if(showChrome) out += appBarHtml();
+  out += `<div class="screen screen-narrow">${pageHtml()}</div>`;
+  if(showChrome && STATE.ui.route.page==='analyses') out += `<div class="fab" data-action="new-analysis:${STATE.ui.route.type}">${icon('plus')}</div>`;
+  if(showChrome) out += tabbarHtml();
+  if(newScreen) out += newAnalysisScreenHtml(STATE.ui.modal.typeKey);
+  if(searchScreen) out += searchScreenHtml();
+  if(STATE.ui.modal && STATE.ui.modal.type==='scoreExplain') out += sheetWrap('Score explained', scoreExplainSheetBody(findInv(STATE.ui.modal.id)));
+  if(STATE.ui.modal && STATE.ui.modal.type==='evidence') out += sheetWrap('Add source', evidenceSheetBody(STATE.ui.modal.key));
+  if(STATE.ui.modal && STATE.ui.modal.type==='confirmDelete') out += sheetWrap('Delete this analysis?', confirmDeleteSheetBody(STATE.ui.modal.id));
+  if(STATE.ui.toast) out += `<div class="toast">${STATE.ui.toast}</div>`;
+  return out;
+}
+
+function appBarHtml(){
+  const r = STATE.ui.route;
+  if(r.page==='dashboard'){
+    return `<div class="appbar">
+      <div class="appbar-brand"><div class="mark">${icon('logo')}</div><div class="appbar-title">Keel</div></div>
+      <div class="appbar-btn" data-action="open-search">${icon('search')}</div>
+      <div class="appbar-btn" data-action="goto:settings">${icon('settings')}</div>
+    </div>`;
+  }
+  if(r.page==='research'){
+    return `<div class="appbar"><div class="appbar-title">Research</div><div class="appbar-btn" data-action="open-search">${icon('search')}</div></div>`;
+  }
+  if(r.page==='watchlist'){
+    return `<div class="appbar"><div class="appbar-title">Watchlist</div><div class="appbar-btn" data-action="open-search">${icon('search')}</div></div>`;
+  }
+  if(r.page==='settings'){
+    return `<div class="appbar"><div class="appbar-title">Settings</div></div>`;
+  }
+  if(r.page==='workspace'){
+    const inv = findInv(r.id);
+    return `<div class="appbar">
+      <div class="appbar-btn" data-action="go-back">${icon('chevronL')}</div>
+      <div style="flex:1;min-width:0">
+        <div class="appbar-title">${inv?esc(inv.name):'Not found'}</div>
+        ${inv?`<div class="appbar-sub">${esc(inv.identifier)}</div>`:''}
+      </div>
+    </div>`;
+  }
+  const t = typeInfo(r.type);
+  const label = r.page==='type'? (t?t.label:'') : r.page==='analyses'? (t?t.label:'')+' Analyses' : r.page==='rankings'? (t?t.label:'')+' Rankings' : (t?t.label:'')+' Framework';
+  return `<div class="appbar">
+    <div class="appbar-btn" data-action="go-back">${icon('chevronL')}</div>
+    <div class="appbar-title">${label}</div>
+    ${r.page==='analyses'? `<div class="appbar-btn" data-action="open-search">${icon('search')}</div>`:''}
+  </div>`;
+}
+
+function tabbarHtml(){
+  const active = mobileTabFor(STATE.ui.route);
+  const items = [
+    {id:'home', label:'Home', ic:'home', go:'goto:dashboard'},
+    {id:'research', label:'Research', ic:'grid', go:'goto:research'},
+    {id:'watchlist', label:'Watchlist', ic:'star', go:'goto:watchlist:all'},
+    {id:'settings', label:'Settings', ic:'settings', go:'goto:settings'},
+  ];
+  return `<div class="tabbar">${items.map(it=>`<div class="tabbar-item ${active===it.id?'active':''}" data-action="${it.go}">${icon(it.ic)}<span>${it.label}</span></div>`).join('')}</div>`;
+}
+
+function updateBannerHtml(){
+  return `<div class="update-banner">
+    <span>${icon('info')} A new version of Keel is available.</span>
+    <div class="btn btn-primary" data-action="apply-update">Refresh</div>
+    <div class="dismiss" data-action="dismiss-update-banner">${icon('x')}</div>
+  </div>`;
+}
+function sheetWrap(title, bodyHtml){
+  return `<div class="sheet-overlay" data-action="close-modal-overlay">
+    <div class="sheet" onclick="event.stopPropagation()">
+      <div class="sheet-grab"></div>
+      <div class="sheet-head"><div class="sheet-title">${title}</div><div class="sheet-close" data-action="close-modal">${icon('x')}</div></div>
+      ${bodyHtml}
+    </div>
+  </div>`;
+}
+
+function pageHtml(){
+  const r = STATE.ui.route;
+  if(r.page==='dashboard') return dashboardPage();
+  if(r.page==='research') return researchHubPage();
+  if(r.page==='type') return typeOverviewPage(r.type);
+  if(r.page==='analyses') return analysesPage(r.type);
+  if(r.page==='rankings') return rankingsPage(r.type);
+  if(r.page==='framework') return frameworkPage(r.type);
+  if(r.page==='workspace') return workspacePage(r.id, r.tab);
+  if(r.page==='watchlist') return watchlistPage(r.tab);
+  if(r.page==='settings') return settingsPage();
+  return dashboardPage();
+}
+
+/* ============================================================
+   DASHBOARD
+============================================================ */
+function dashboardPage(){
+  const all = STATE.investments;
+  const analyzed = all.length;
+  const inProgress = all.filter(i=>i.status==='In Progress'||i.status==='Draft').length;
+  const watch = all.filter(i=>i.watchlist).length;
+  const review = all.filter(i=>i.status==='Needs Review').length;
+  const scored = all.map(i=>({inv:i, score: overallScore(i.analysis, FRAMEWORKS[i.type], currentFrameworkWeights(i.type))})).filter(x=>x.score!=null);
+  const topRated = [...scored].sort((a,b)=>b.score-a.score).slice(0,3);
+  const recent = [...all].sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,4);
+  const attn = all.filter(i=>i.status==='Needs Review').slice(0,4);
+
+  return `
+  <div class="kpi-grid" style="margin-bottom:6px">
+    ${kpiMini('dashboard', analyzed, 'Researched', 'accent')}
+    ${kpiMini('clock', inProgress, 'In Progress', 'warning')}
+    ${kpiMini('star', watch, 'Watchlist', 'purple')}
+    ${kpiMini('alert', review, 'Needs Review', 'negative')}
+  </div>
+  <div class="section-title">Top 3 Research Scores</div>
+  <div class="card">${topRated.length? topRated.map((r,idx)=>invCardRow(r.inv, {rank:idx+1})).join('') : emptyState('inbox','No scored analyses yet','Start a new analysis from Research to see it ranked here.')}</div>
+  <div class="section-title">Needs Attention</div>
+  <div class="card">${attn.length? attn.map(i=>invCardRow(i, {note:i.status==='Needs Review'?'Marked needs review':overallCompletion(i.analysis,FRAMEWORKS[i.type])+'% complete'})).join('') : emptyState('info','All clear','')}</div>
+  <div class="section-title">Recently Updated</div>
+  <div class="card">${recent.length? recent.map(i=>invCardRow(i, {time:true})).join('') : emptyState('clock','No activity yet','')}</div>
+  `;
+}
+function kpiMini(iconName,val,lbl,tone){
+  const bg = tone==='accent'?'var(--accent-soft)':tone==='warning'?'var(--warning-soft)':tone==='purple'?'var(--purple-soft)':'var(--negative-soft)';
+  const fg = tone==='accent'?'var(--accent)':tone==='warning'?'var(--warning)':tone==='purple'?'var(--purple)':'var(--negative)';
+  return `<div class="kpi-mini"><div class="kpi-mini-top"><div class="kpi-mini-icon" style="background:${bg};color:${fg}">${icon(iconName)}</div></div><div class="kpi-mini-val num">${val}</div><div class="kpi-mini-lbl">${lbl}</div></div>`;
+}
+function invCardRow(inv, opts){
+  opts = opts || {};
+  const f = FRAMEWORKS[inv.type];
+  const score = overallScore(inv.analysis, f, currentFrameworkWeights(inv.type));
+  const b = bucketScores(inv);
+  return `<div class="inv-card" data-action="open:${inv.id}">
+    <div class="inv-avatar">${opts.rank? '<span class=\"num\">'+opts.rank+'</span>' : initials(inv.name)}</div>
+    <div class="inv-main">
+      <div class="inv-name">${esc(inv.name)}</div>
+      <div class="inv-sub">${esc(inv.identifier)}${opts.note?` · <span style=\"color:var(--warning)\">${opts.note}</span>`:''}${opts.time?' · '+timeAgo(inv.updatedAt):''}</div>
+      <div class="inv-badges">${statusBadge(inv.status)}</div>
+    </div>
+    <div class="inv-right">
+      ${scorePill(score)}
+      ${riskPill(b.risk)}
+    </div>
+  </div>`;
+}
+function emptyState(iconName,title,sub){
+  return `<div class="empty-state">${icon(iconName)}<div class="empty-title">${title}</div><div class="empty-sub">${sub||''}</div></div>`;
+}
+
+/* ============================================================
+   RESEARCH HUB (mobile type picker)
+============================================================ */
+function researchHubPage(){
+  return `
+  <div class="type-grid">
+    ${TYPES.map(t=>{
+      const list = invsOfType(t.key);
+      const scored = list.map(i=>overallScore(i.analysis,FRAMEWORKS[t.key],currentFrameworkWeights(t.key))).filter(s=>s!=null);
+      const top = scored.length? Math.max(...scored) : null;
+      return `<div class="type-card" data-action="goto:type:${t.key}">
+        <div class="type-card-icon">${icon(t.icon)}</div>
+        <div><div class="type-card-lbl">${t.label}</div><div class="type-card-count">${list.length} analyzed${top!=null?' · top '+top:''}</div></div>
+      </div>`;
+    }).join('')}
+  </div>
+  <div class="section-title">All Watchlist</div>
+  <div class="card">
+    ${STATE.investments.filter(i=>i.watchlist).length? STATE.investments.filter(i=>i.watchlist).slice(0,3).map(i=>invCardRow(i,{})).join('') : emptyState('star','Nothing on your watchlist yet','')}
+  </div>
+  `;
+}
+
+/* ============================================================
+   TYPE OVERVIEW
+============================================================ */
+function typeSegCtl(typeKey, active){
+  const segs = [{id:'type',label:'Overview'},{id:'analyses',label:'Analyses'},{id:'rankings',label:'Rankings'},{id:'framework',label:'Framework'}];
+  return `<div class="segctl">${segs.map(s=>`<div class="segctl-item ${s.id===active?'active':''}" data-action="goto:${s.id}:${typeKey}">${s.label}</div>`).join('')}</div>`;
+}
+function typeOverviewPage(typeKey){
+  const t = typeInfo(typeKey);
+  const list = invsOfType(typeKey);
+  const scored = list.map(i=>({inv:i, score: overallScore(i.analysis, FRAMEWORKS[typeKey], currentFrameworkWeights(typeKey))}));
+  const top = [...scored].filter(s=>s.score!=null).sort((a,b)=>b.score-a.score).slice(0,3);
+  const attn = list.filter(i=>i.status==='Needs Review').slice(0,3);
+  const recentList = [...list].sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,3);
+  const explore = (top[0]&&findInv(top[0].inv.id)) || recentList[0];
+
+  return `
+  ${typeSegCtl(typeKey,'type')}
+  <div class="kpi-grid" style="margin-bottom:6px">
+    ${kpiMini(t.icon, list.length, t.plural+' Analyzed', 'accent')}
+    ${kpiMini('star', list.filter(i=>i.watchlist).length, 'Watchlist', 'purple')}
+    ${kpiMini('alert', list.filter(i=>i.status==='Needs Review').length, 'Need Review', 'negative')}
+    ${kpiMini('clock', list.filter(i=>i.status==='In Progress').length, 'In Progress', 'warning')}
+  </div>
+  <div class="section-title">Top 3 Rated</div>
+  <div class="card">${top.length? top.map((r,idx)=>invCardRow(r.inv,{rank:idx+1})).join('') : emptyState('inbox','No '+t.plural.toLowerCase()+' analyzed yet','Tap + to start your first analysis.')}</div>
+  <div class="section-title">Needs Attention</div>
+  <div class="card">${attn.length? attn.map(i=>invCardRow(i,{note:'Needs review'})).join('') : emptyState('info','All clear','')}</div>
+  ${explore? `<div class="section-title">Explore an Analysis</div>${exploreCardMobile(explore)}` : ''}
+  `;
+}
+function exploreCardMobile(inv){
+  const f = FRAMEWORKS[inv.type];
+  const os = overallScore(inv.analysis, f, currentFrameworkWeights(inv.type));
+  const cats = f.categories.map(c=>({c, s:categoryScore(inv.analysis,c)}));
+  return `<div class="card" data-action="open:${inv.id}">
+    <div style="display:flex;gap:11px;align-items:flex-start;margin-bottom:14px">
+      <div class="inv-avatar" style="width:40px;height:40px">${initials(inv.name)}</div>
+      <div style="flex:1;min-width:0">
+        <div class="inv-name" style="font-size:14px">${esc(inv.name)}</div>
+        <div class="inv-sub">${esc(inv.identifier)}${inv.sector?' · '+esc(inv.sector):''}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:16px;align-items:center">
+      ${radial(os)}
+      <div style="flex:1;min-width:0">
+        ${cats.slice(0,5).map(x=>`<div class="cat-row"><span class="dot" style="background:${x.s!=null?catDotColor(x.c.id):'var(--muted)'}"></span><span class="nm" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${x.c.name}</span><span class="num" style="font-size:12px;font-weight:700">${x.s!=null?score100(x.s):'-'}</span></div>`).join('')}
+      </div>
+    </div>
+    <div class="btn btn-ghost btn-sm" style="margin-top:12px" data-action="open:${inv.id}">View Full Analysis ${icon('chevron')}</div>
+  </div>`;
+}
+
+/* ============================================================
+   ANALYSES LIST
+============================================================ */
+function filteredAnalyses(typeKey){
+  let list = invsOfType(typeKey);
+  const f = STATE.ui.filters;
+  if(f.status!=='all') list = list.filter(i=>i.status===f.status);
+  if(f.q) list = list.filter(i=> (i.name+' '+i.identifier+' '+i.sector).toLowerCase().includes(f.q.toLowerCase()));
+  return list;
+}
+function analysesPage(typeKey){
+  const t = typeInfo(typeKey);
+  const list = filteredAnalyses(typeKey);
+  const f = STATE.ui.filters;
+  return `
+  ${typeSegCtl(typeKey,'analyses')}
+  <div class="field-search"><input id="analyses-search-input" placeholder="Search ${t.plural.toLowerCase()}..." value="${escAttr(f.q)}">${icon('search')}</div>
+  <div class="chip-row">
+    <div class="chip ${f.status==='all'?'active':''}" data-action="set-status-filter:all">All</div>
+    ${STATUSES.map(s=>`<div class="chip ${f.status===s?'active':''}" data-action="set-status-filter:${s}">${s}</div>`).join('')}
+  </div>
+  <div class="card" id="analyses-list-container">${analysesListOrEmpty(list, typeKey)}</div>
+  `;
+}
+function analysesListOrEmpty(list, typeKey){
+  const t = typeInfo(typeKey);
+  if(!list.length) return emptyState('inbox','No '+t.plural.toLowerCase()+' match','Try clearing filters or tap the + button to start a new analysis.');
+  return list.map(i=>invCardRow(i,{})).join('');
+}
+
+/* ============================================================
+   RANKINGS
+============================================================ */
+function rankingsPage(typeKey){
+  const t = typeInfo(typeKey);
+  const f = FRAMEWORKS[typeKey];
+  const profiles = profilesFor(typeKey);
+  const activeId = STATE.ui.rankProfile[typeKey] || 'default';
+  const active = profiles.find(p=>p.id===activeId) || profiles[0];
+  const list = invsOfType(typeKey);
+  const rows = list.map(i=>({inv:i, score:overallScore(i.analysis,f,active.weights)})).sort((a,b)=>(b.score||-1)-(a.score||-1));
+  return `
+  ${typeSegCtl(typeKey,'rankings')}
+  <div class="field-full" style="margin-bottom:12px"><label>Ranked using</label>
+    <select data-bind="rank-profile:${typeKey}">${profiles.map(p=>`<option value="${p.id}" ${p.id===activeId?'selected':''}>${p.name}</option>`).join('')}</select>
+  </div>
+  <div class="card">${rows.length? rows.map((r,idx)=>invCardRow(r.inv,{rank:idx+1})).join('') : emptyState('inbox','Nothing to rank yet','')}</div>
+  <div class="caveat">${icon('info')} Changing the profile reweights categories only; underlying scores, reasoning and evidence are unchanged.</div>
+  `;
+}
+
+/* ============================================================
+   FRAMEWORK EDITOR (simplified for mobile)
+============================================================ */
+function frameworkPage(typeKey){
+  const t = typeInfo(typeKey);
+  const f = FRAMEWORKS[typeKey];
+  const weights = currentFrameworkWeights(typeKey);
+  const sum = Math.round(f.categories.reduce((s,c)=>s+weights[c.id],0)*10)/10;
+  return `
+  ${typeSegCtl(typeKey,'framework')}
+  <div class="callout">${icon('info')} Editing weights changes new composite scores. Reasoning, evidence and criterion scores you've already entered stay exactly as you left them.</div>
+  <div class="section-title">Category Weights</div>
+  <div class="card">
+    ${f.categories.map(c=>`<div class="row-toggle"><div><div class="row-toggle-main">${c.name}</div><div class="row-toggle-sub">${c.criteria.length} criteria</div></div><input type="number" min="0" max="100" step="1" value="${weights[c.id]}" data-bind="weight:${typeKey}:${c.id}" style="width:56px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;padding:8px;text-align:right"></div>`).join('')}
+    <div class="row-toggle" style="border-bottom:none"><div class="row-toggle-main">Total</div><div class="row-toggle-main num" style="color:${Math.abs(sum-100)<0.6?'var(--positive)':'var(--negative)'}">${sum}%</div></div>
+  </div>
+  <div class="btn btn-ghost btn-block" style="margin-top:10px" data-action="reset-weights:${typeKey}">Reset to default weights</div>
+  <div class="section-title">Scoring Profiles</div>
+  <div class="card">
+    ${profilesFor(typeKey).map(p=>`<div class="row-toggle"><div class="row-toggle-main">${p.name}</div></div>`).join('')}
+  </div>
+  <div class="caveat">${icon('info')} Profiles reweight categories for ranking and comparison; they never change a criterion's stored score, reasoning or evidence.</div>
+  `;
+}
+
+/* ============================================================
+   WATCHLIST
+============================================================ */
+function watchlistPage(tab){
+  const active = tab==='review'? STATE.investments.filter(i=>i.status==='Needs Review') :
+                 tab==='recent'? [...STATE.investments].filter(i=>i.watchlist).sort((a,b)=>b.updatedAt-a.updatedAt) :
+                 STATE.investments.filter(i=>i.watchlist);
+  return `
+  <div class="segctl">
+    <div class="segctl-item ${tab!=='review'&&tab!=='recent'?'active':''}" data-action="goto:watchlist:all">All</div>
+    <div class="segctl-item ${tab==='recent'?'active':''}" data-action="goto:watchlist:recent">Recent</div>
+    <div class="segctl-item ${tab==='review'?'active':''}" data-action="goto:watchlist:review">Needs Review</div>
+  </div>
+  <div class="card">${active.length? active.map(i=>invCardRow(i,{})).join('') : emptyState('star','Nothing here yet','Add investments to your watchlist from their workspace.')}</div>
+  `;
+}
+
+/* ============================================================
+   SETTINGS
+============================================================ */
+function settingsPage(){
+  const gh = STATE.github;
+  return `
+  <div class="section-title">Updates</div>
+  <div class="card">
+    <div class="row-toggle"><div><div class="row-toggle-main">This build</div><div class="row-toggle-sub">${APP_VERSION}</div></div><div class="btn btn-ghost btn-sm" data-action="check-for-updates">Check</div></div>
+    <div class="row-toggle"><div><div class="row-toggle-main">Auto-refresh on update</div><div class="row-toggle-sub">Apply new versions automatically instead of prompting</div></div><div class="theme-switch ${STATE.ui.autoRefreshOnUpdate?'on':''}" data-action="toggle-auto-refresh"><div class="knob"></div></div></div>
+    <div class="row-toggle"><div><div class="row-toggle-main">${updateAvailable?'A new version is ready':'Up to date'}</div><div class="row-toggle-sub">${updateAvailable?'Refresh to pick it up':'You have the latest version'}</div></div>${updateAvailable?`<div class="btn btn-primary btn-sm" data-action="apply-update">Refresh</div>`:''}</div>
+  </div>
+  <div class="section-title">Appearance</div>
+  <div class="card">
+    <div class="row-toggle"><div class="row-toggle-main">Theme</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="muted" style="font-size:11.5px">${STATE.ui.theme==='light'?'Light':'Dark'}</span>
+        <div class="theme-switch ${STATE.ui.theme==='light'?'on':''}" data-action="toggle-theme"><div class="knob"></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="section-title">Data</div>
+  <div class="card">
+    <div class="row-toggle"><div><div class="row-toggle-main">Export data</div><div class="row-toggle-sub">Download everything as JSON</div></div><div class="btn btn-ghost btn-sm" data-action="export-data">${icon('download')}</div></div>
+    <div class="row-toggle"><div><div class="row-toggle-main">Import data</div><div class="row-toggle-sub">Restore from a JSON export</div></div><div class="btn btn-ghost btn-sm" data-action="trigger-import">${icon('upload')}</div>
+      <input type="file" id="import-file-input" accept="application/json" style="display:none">
+    </div>
+    <div class="row-toggle"><div><div class="row-toggle-main">Sample data</div><div class="row-toggle-sub">Preloaded example analyses</div></div><div class="btn btn-ghost btn-sm btn-danger" data-action="clear-demo">Clear</div></div>
+    <div class="row-toggle"><div><div class="row-toggle-main">Reset app</div><div class="row-toggle-sub">Erase everything on this device</div></div><div class="btn btn-ghost btn-sm btn-danger" data-action="clear-all">Reset</div></div>
+  </div>
+  <div class="section-title">GitHub Sync</div>
+  <div class="card">
+    ${gh.connected? `
+      <div style="font-size:13px;margin-bottom:3px"><b>${esc(gh.repo)}</b> <span class="muted">· ${esc(gh.branch)}</span></div>
+      <div class="muted" style="font-size:11px;margin-bottom:12px">Last synced: ${gh.lastSync? fmtDateTime(gh.lastSync) : 'never'}</div>
+      <div class="row-toggle"><div><div class="row-toggle-main">Auto-sync</div><div class="row-toggle-sub">Push a few seconds after each change</div></div><div class="theme-switch ${gh.autoSync?'on':''}" data-action="toggle-autosync"><div class="knob"></div></div></div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <div class="btn btn-primary btn-sm" style="flex:1" data-action="github-push">${icon('github')} Push Now</div>
+        <div class="btn btn-ghost btn-sm btn-danger" data-action="github-disconnect">Disconnect</div>
+      </div>
+    ` : `
+      <div class="form-field"><label>Repository (owner/repo)</label><input type="text" id="gh_repo" placeholder="e.g. yourname/keel-data"></div>
+      <div class="form-field"><label>Branch</label><input type="text" id="gh_branch" placeholder="main" value="main"></div>
+      <div class="form-field"><label>Personal Access Token</label><input type="password" id="gh_token" placeholder="ghp_..."></div>
+      <div class="btn btn-primary btn-block" data-action="github-save-connection">Connect</div>
+    `}
+    <div class="caveat" style="margin-top:12px">${icon('info')} Pushes to <b>keel-data.json</b> in a private repo you choose. Requires a token with write access to that repo.</div>
+  </div>
+  <div class="section-title">About</div>
+  <div class="card">
+    <div class="muted" style="font-size:12px;line-height:1.7">Keel is a personal research workspace. It quantifies and organizes your own judgment. It does not generate investment recommendations. You remain responsible for every investment decision.</div>
+  </div>
+  `;
+}
+
+/* ============================================================
+   WORKSPACE (single investment)
+============================================================ */
+function workspaceTabsHtml(inv, activeTab){
+  const tabs = ['summary','analysis','valuation','risk','thesis','history'];
+  const labels = {summary:'Summary',analysis:'Analysis',valuation:'Valuation',risk:'Risk',thesis:'Thesis',history:'History'};
+  return `<div class="segctl">${tabs.map(tb=>`<div class="segctl-item ${tb===activeTab?'active':''}" data-action="goto:open:${inv.id}:${tb}">${labels[tb]}</div>`).join('')}</div>`;
+}
+function workspacePage(id, tab){
+  const inv = findInv(id);
+  if(!inv) return emptyState('inbox','Not found','This analysis may have been removed.');
+  const f = FRAMEWORKS[inv.type];
+  const w = currentFrameworkWeights(inv.type);
+  const os = overallScore(inv.analysis, f, w);
+  const comp = overallCompletion(inv.analysis, f);
+
+  let body='';
+  if(tab==='summary') body = wsSummary(inv,f,w,os,comp);
+  else if(tab==='analysis') body = wsAnalysis(inv,f,comp);
+  else if(tab==='valuation') body = wsValuation(inv,f);
+  else if(tab==='risk') body = wsRisk(inv,f);
+  else if(tab==='thesis') body = wsThesis(inv);
+  else if(tab==='history') body = wsHistory(inv,f,w);
+
+  return `
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:10px">
+    ${statusBadge(inv.status)}
+    <select data-bind="status:${inv.id}" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:12px;padding:6px 9px;border-radius:20px">${STATUSES.map(s=>`<option value="${s}" ${inv.status===s?'selected':''}>${s}</option>`).join('')}</select>
+    <div class="btn btn-ghost btn-sm" data-action="toggle-watch:${inv.id}" style="margin-left:auto">${icon('star')} ${inv.watchlist?'Watching':'Watch'}</div>
+    <div class="appbar-btn" style="width:34px;height:34px;color:var(--negative)" data-action="delete-analysis:${inv.id}">${icon('trash')}</div>
+  </div>
+  ${workspaceTabsHtml(inv, tab)}
+  ${body}
+  `;
+}
+
+function wsSummary(inv,f,w,os,comp){
+  const cats = f.categories.map(c=>({c, s:categoryScore(inv.analysis,c)}));
+  const th = inv.analysis.thesis||{};
+  return `
+  <div class="card" style="margin-bottom:10px">
+    <div style="font-weight:700;font-size:12.5px;margin-bottom:8px">About</div>
+    <textarea class="reason" style="min-height:64px" placeholder="What does this company/issuer/fund actually do?" data-blur="invfield:${inv.id}:description">${esc(inv.description)}</textarea>
+  </div>
+  <div class="card" style="margin-bottom:10px">
+    <div style="display:flex;gap:16px;align-items:center">
+      ${radial(os)}
+      <div style="flex:1;min-width:0">
+        ${cats.map(x=>`<div class="cat-row"><span class="dot" style="background:${x.s!=null?catDotColor(x.c.id):'var(--muted)'}"></span><span class="nm" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${x.c.name}</span><span class="num" style="font-size:12px;font-weight:700">${x.s!=null?score100(x.s):'-'}</span></div>`).join('')}
+      </div>
+    </div>
+    ${os!=null? `<div class="btn btn-ghost btn-sm btn-block" style="margin-top:12px" data-action="score-explain:${inv.id}">Why this score?</div>` : ''}
+    <div class="caveat">${icon('info')} A structured personal assessment, not an objective rating or a buy/sell signal.</div>
+  </div>
+  <div class="card" style="margin-bottom:10px">
+    <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:7px"><span class="muted">Overall completion</span><span class="num">${comp}%</span></div>
+    <div class="progress-track" style="width:100%;height:6px"><div class="progress-fill" style="width:${comp}%"></div></div>
+  </div>
+  <div class="section-title">Key Strengths</div>
+  <div class="card" style="font-size:13px;color:var(--text2);white-space:pre-wrap">${esc(th.strengths)||'<span class="muted">Not recorded yet. Add this in the Thesis tab.</span>'}</div>
+  <div class="section-title">Key Concerns</div>
+  <div class="card" style="font-size:13px;color:var(--text2);white-space:pre-wrap">${esc(th.concerns)||'<span class="muted">Not recorded yet. Add this in the Thesis tab.</span>'}</div>
+  `;
+}
+
+function wsAnalysis(inv,f,comp){
+  const open = STATE.ui.openCats[inv.id] || {};
+  return `
+  <div class="callout">${icon('info')} <b class="num">${comp}%</b> of criteria answered across ${f.categories.length} categories.</div>
+  ${f.categories.map(c=>{
+    const s = categoryScore(inv.analysis,c); const cc = categoryCompletion(inv.analysis,c);
+    const isOpen = !!open[c.id];
+    const isRisk = c.tags.includes('risk');
+    return `<div class="accordion ${isOpen?'open':''}">
+      <div class="acc-head" data-action="toggle-cat:${inv.id}:${c.id}">
+        ${icon('chevron','acc-chev')}
+        <div class="acc-title">${c.name}${isRisk?'<span class="tag">RISK</span>':''}</div>
+        <div class="progress-track"><div class="progress-fill" style="width:${cc}%"></div></div>
+        <div class="acc-score">${s!=null?score100(s):'-'}</div>
+      </div>
+      ${isOpen? `<div class="acc-body">
+        ${isRisk? `<div class="scale-hint" style="margin-top:11px">${icon('info')} Higher score = lower risk.</div>`:''}
+        ${c.criteria.map(cr=>criterionRow(inv, c, cr, isRisk)).join('')}
+      </div>` : ''}
+    </div>`;
+  }).join('')}
+  `;
+}
+function criterionRow(inv, cat, cr, isRisk){
+  const a = (inv.analysis.categories[cat.id] && inv.analysis.categories[cat.id].criteria[cr.id]) || {};
+  const key = inv.id+'|'+cat.id+'|'+cr.id;
+  return `<div class="criterion">
+    <div class="crit-name">${cr.name}</div>
+    <div class="crit-block">
+      <div class="crit-field-lbl">Score</div>
+      <div class="scale">${[1,2,3,4,5].map(v=>`<div class="scale-btn ${isRisk?'risk':''} ${a.score===v?'on':''}" data-action="set-score:${key}:${v}">${v}</div>`).join('')}</div>
+      <div class="scale-hint">${isRisk? (a.score?riskLabel(a.score)+' Risk':'Very High to Very Low Risk') : (a.score? ['','Very Weak','Weak','Average','Strong','Very Strong'][a.score] : '1 = Very Weak, 5 = Very Strong')}</div>
+    </div>
+    <div class="crit-block">
+      <div class="crit-field-lbl">Confidence</div>
+      <div class="scale scale-conf">${[1,2,3,4,5].map(v=>`<div class="scale-btn ${a.confidence===v?'on':''}" data-action="set-conf:${key}:${v}">${v}</div>`).join('')}</div>
+    </div>
+    <textarea class="reason" placeholder="Reasoning: why this score?" data-blur="reason:${key}">${esc(a.reasoning)}</textarea>
+    <div class="evidence-list">${(a.evidence||[]).map((e,idx)=>`<div class="evidence-chip">${icon('clip')} ${esc(e)}<button data-action="rm-evidence:${key}:${idx}">${icon('x')}</button></div>`).join('')}</div>
+    <div class="add-evidence" data-action="add-evidence:${key}">${icon('plus')} Add source</div>
+  </div>`;
+}
+
+function wsValuation(inv,f){
+  const v = inv.analysis.valuation||{};
+  const isStock = inv.type==='stock';
+  const isBond = inv.type==='bond';
+  return `
+  <div class="callout">${icon('info')} Objective inputs below are raw data. Qualitative valuation judgment is recorded in the Analysis tab so score, reasoning and evidence stay together.</div>
+  <div class="section-title">Market / Objective Data</div>
+  <div class="metric-grid">
+    ${f.valuationFields.map(k=>`<div class="metric-box"><label>${k}</label><input type="text" inputmode="decimal" placeholder="-" value="${escAttr(v[k]||'')}" data-blur="val:${inv.id}:${k}"></div>`).join('')}
+  </div>
+  ${isStock? dcfBlock(inv) : ''}
+  ${isBond? realReturnBlock(inv) : ''}
+  ${!isStock && !isBond? `<div class="callout">${icon('info')} Fund-level cost of access is captured above. Portfolio valuation and manager/strategy judgment live in the Analysis tab.</div>` : ''}
+  `;
+}
+function dcfBlock(inv){
+  const d = inv.analysis.dcf||{};
+  const g = parseFloat(d.growth)||0, disc = parseFloat(d.discount)||10, term = parseFloat(d.terminal)||2.5, price=parseFloat((inv.analysis.valuation||{})['Share Price'])||0;
+  const estimate = price>0 ? Math.round(price * (1 + (g-disc)/100 + (term-2)/100) * 100)/100 : null;
+  return `
+  <div class="section-title">DCF Workspace <span class="muted" style="font-weight:400">(optional)</span></div>
+  <div class="metric-grid">
+    <div class="metric-box"><label>Revenue Growth %</label><input type="text" inputmode="decimal" placeholder="e.g. 8" value="${escAttr(d.growth||'')}" data-blur="dcf:${inv.id}:growth"></div>
+    <div class="metric-box"><label>Operating Margin %</label><input type="text" inputmode="decimal" placeholder="e.g. 18" value="${escAttr(d.margin||'')}" data-blur="dcf:${inv.id}:margin"></div>
+    <div class="metric-box"><label>Discount Rate %</label><input type="text" inputmode="decimal" placeholder="e.g. 10" value="${escAttr(d.discount||'')}" data-blur="dcf:${inv.id}:discount"></div>
+    <div class="metric-box"><label>Terminal Growth %</label><input type="text" inputmode="decimal" placeholder="e.g. 2.5" value="${escAttr(d.terminal||'')}" data-blur="dcf:${inv.id}:terminal"></div>
+  </div>
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;padding:6px 0"><span class="muted" style="font-size:11.5px">Current Price</span><span class="num" style="font-weight:700">${price?('$'+price):'-'}</span></div>
+    <div style="display:flex;justify-content:space-between;padding:6px 0"><span class="muted" style="font-size:11.5px">Illustrative Estimated Value</span><span class="num" style="font-weight:700">${estimate?('$'+estimate):'-'}</span></div>
+    <div style="display:flex;justify-content:space-between;padding:6px 0"><span class="muted" style="font-size:11.5px">Margin of Safety</span><span class="num" style="font-weight:700">${estimate&&price? Math.round((estimate-price)/estimate*1000)/10+'%':'-'}</span></div>
+    <div class="caveat">${icon('info')} A simplified, assumption-dependent estimate, not a precise valuation or a target price.</div>
+  </div>`;
+}
+function realReturnBlock(inv){
+  const v = inv.analysis.valuation||{};
+  const nominal = parseFloat(v['Yield to Maturity'])||parseFloat(v['Current Yield'])||0;
+  const infl = parseFloat(inv.analysis.expectedInflation)||0;
+  const real = nominal? (((1+nominal/100)/(1+infl/100))-1)*100 : null;
+  return `
+  <div class="section-title">Real Return</div>
+  <div class="metric-grid">
+    <div class="metric-box"><label>Expected Inflation %</label><input type="text" inputmode="decimal" placeholder="e.g. 4" value="${escAttr(inv.analysis.expectedInflation||'')}" data-blur="field:${inv.id}:expectedInflation"></div>
+    <div class="metric-box" style="background:var(--elevated)"><label>Estimated Real Return</label><div class="num" style="font-size:14px;font-weight:700">${real!=null?Math.round(real*10)/10+'%':'-'}</div></div>
+  </div>
+  <div class="caveat">${icon('info')} Real Return = (1 + Nominal) / (1 + Inflation) minus 1. An estimate based on your assumptions.</div>
+  `;
+}
+
+function wsRisk(inv,f){
+  const riskCats = f.categories.filter(c=>c.tags.includes('risk'));
+  const rn = inv.analysis.riskNotes||{};
+  return `
+  <div class="callout">${icon('info')} <b>Higher score = lower risk.</b> These are entered once in the Analysis tab and summarized here.</div>
+  <div class="section-title">Risk Scorecard</div>
+  ${riskCats.map(c=>{
+    const a = categoryAssessments(inv.analysis,c.id);
+    return `<div class="card" style="margin-bottom:10px"><div style="font-weight:700;font-size:12.5px;margin-bottom:6px">${c.name}</div>
+      ${c.criteria.map(cr=>{ const s=a[cr.id]&&a[cr.id].score; return `<div class="risk-mini"><span class="nm">${cr.name}</span>${riskPill(s!=null?score100(s):null)}</div>`; }).join('')}
+    </div>`;
+  }).join('')}
+  <div class="section-title">Narrative Risk Assessment</div>
+  <div class="field-full"><label>Key Risks</label><textarea data-blur="risknote:${inv.id}:keyRisks" placeholder="What are the most important risks here?">${esc(rn.keyRisks)}</textarea></div>
+  <div class="field-full"><label>Potential Loss Scenarios</label><textarea data-blur="risknote:${inv.id}:lossScenarios" placeholder="What could cause a large or permanent loss?">${esc(rn.lossScenarios)}</textarea></div>
+  <div class="field-full"><label>What Could Change My Mind?</label><textarea data-blur="risknote:${inv.id}:whatWouldChangeMind" placeholder="What evidence would make you reassess?">${esc(rn.whatWouldChangeMind)}</textarea></div>
+  `;
+}
+
+function wsThesis(inv){
+  const th = inv.analysis.thesis||{};
+  const fields = [
+    ['thesis','Investment Thesis','Why might this be an attractive investment?'],
+    ['strengths','Key Strengths',''],['concerns','Key Concerns',''],['assumptions','Key Assumptions',''],
+    ['catalysts','Catalysts',''],['invalidate','What Could Invalidate the Thesis?',''],['reconsider','What Would Make Me Sell / Reconsider?',''],
+  ];
+  return `
+  <div class="callout">${icon('info')} Narrative research, kept separate from the numerical score.</div>
+  ${fields.map(([k,label,ph])=>`<div class="field-full"><label>${label}</label><textarea data-blur="thesis:${inv.id}:${k}" placeholder="${ph}">${esc(th[k])}</textarea></div>`).join('')}
+  <div class="field-full"><label>Expected Holding Period</label><input type="text" value="${escAttr(th.holdingPeriod||'')}" placeholder="e.g. 3 to 5 years" data-blur="thesis:${inv.id}:holdingPeriod"></div>
+  <div class="field-full"><label>Review Date</label><input type="date" value="${escAttr(th.reviewDate||'')}" data-blur="thesis:${inv.id}:reviewDate"></div>
+  `;
+}
+
+function wsHistory(inv,f,w){
+  const versions = inv.analysis.versions||[];
+  const os = overallScore(inv.analysis,f,w);
+  return `
+  <div class="btn btn-primary btn-block" style="margin-bottom:14px" data-action="save-version:${inv.id}">${icon('plus')} Save Version</div>
+  ${versions.length===0? emptyState('clock','No versions saved yet','Save a version to start tracking how your analysis evolves.') : `
+  <div class="card">
+  ${[...versions].reverse().map((v,idx)=>{
+    const prevIdx = versions.length-2-idx; const prev = prevIdx>=0? versions[prevIdx]:null;
+    const delta = prev? v.overallScore-prev.overallScore : null;
+    return `<div class="inv-card"><div class="inv-avatar" style="background:var(--accent-soft);color:var(--accent);border:none">v${versions.length-idx}</div>
+      <div class="inv-main"><div class="inv-name">Score ${v.overallScore!=null?v.overallScore:'-'} ${delta!=null?`<span style="font-size:11px;font-weight:700;margin-left:5px;color:${delta>=0?'var(--positive)':'var(--negative)'}">${delta>=0?'+':''}${delta}</span>`:''}</div><div class="inv-sub">${v.note||'Saved version'}</div></div>
+      <div class="inv-sub">${fmtDateTime(v.ts)}</div>
+    </div>`;
+  }).join('')}
+  </div>`}
+  <div class="caveat">${icon('info')} Current live score: <b class="num">${os!=null?os:'-'}</b>. Save a version to lock it into history.</div>
+  `;
+}
+
+function scoreExplainSheetBody(inv){
+  const f = FRAMEWORKS[inv.type]; const w = currentFrameworkWeights(inv.type);
+  const os = overallScore(inv.analysis,f,w);
+  return `
+  <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:14px"><div style="font-size:30px;font-weight:800">${os!=null?os:'-'}</div><div class="muted" style="font-size:12px">/ 100, weighted sum of category scores</div></div>
+  ${f.categories.map(c=>{ const s=categoryScore(inv.analysis,c); const s100=s!=null?score100(s):null; const wgt=w[c.id]; const contrib = s100!=null? Math.round(s100*wgt)/100 : null;
+    return `<div class="risk-mini"><span class="nm">${c.name}</span><span style="display:flex;gap:12px;font-size:12px" class="num"><span class="muted">${wgt}%</span><span style="font-weight:700">${s100!=null?s100:'-'}</span></span></div>`; }).join('')}
+  <div class="caveat">${icon('info')} Categories with no scored criteria are excluded from the weighted average rather than counted as zero.</div>
+  `;
+}
+function evidenceSheetBody(key){
+  return `
+  <div class="form-field"><label>Source title or URL</label><input type="text" id="ev_input" placeholder="e.g. FY2026 Annual Report"></div>
+  <div class="btn btn-primary btn-block" data-action="confirm-evidence:${key}">Add</div>
+  `;
+}
+function confirmDeleteSheetBody(id){
+  const inv = findInv(id);
+  return `
+  <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:16px">This permanently removes <b style="color:var(--text)">${inv?esc(inv.name):'this investment'}</b>, including every score, reasoning entry, evidence source, valuation note, thesis and saved version. This can't be undone.</div>
+  <div style="display:flex;gap:8px">
+    <div class="btn btn-ghost" style="flex:1" data-action="close-modal">Cancel</div>
+    <div class="btn" style="flex:1;background:var(--negative);border-color:var(--negative);color:#fff" data-action="confirm-delete:${id}">Delete</div>
+  </div>
+  `;
+}
+
+/* ============================================================
+   NEW ANALYSIS (full screen)
+============================================================ */
+function newAnalysisScreenHtml(typeKey){
+  const t = typeInfo(typeKey);
+  return `<div class="full-screen">
+    <div class="appbar">
+      <div class="appbar-btn" data-action="close-modal">${icon('x')}</div>
+      <div class="appbar-title">New ${t.label.replace(/s$/,'')}</div>
+    </div>
+    <div class="screen screen-narrow">
+      <div class="form-field"><label>Name *</label><input type="text" id="na_name" placeholder="e.g. Atlas Energy"></div>
+      <div class="form-field"><label>${t.idLabel}</label><input type="text" id="na_identifier" placeholder="e.g. ATLS"></div>
+      <div class="form-field"><label>Currency</label><input type="text" id="na_currency" value="USD"></div>
+      <div class="form-field"><label>Country</label><input type="text" id="na_country" placeholder="e.g. United States"></div>
+      <div class="form-field"><label>Sector</label><input type="text" id="na_sector" placeholder="e.g. Energy"></div>
+      <div class="form-field"><label>Description</label><textarea id="na_desc" placeholder="What does this company/issuer/fund actually do?" rows="4" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:14px;padding:11px 13px;resize:vertical;font-family:var(--font);line-height:1.5;min-height:90px"></textarea></div>
+      <div class="muted" style="font-size:11px;margin-bottom:16px">Framework: <b style="color:var(--text2)">${FRAMEWORKS[typeKey].label}</b> (default)</div>
+      <div class="btn btn-primary btn-block" data-action="create-analysis:${typeKey}">Create Analysis</div>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   SEARCH (full screen)
+============================================================ */
+function searchScreenHtml(){
+  const q = (STATE.ui.search||'').trim().toLowerCase();
+  const matches = q? STATE.investments.filter(i => (i.name+' '+i.identifier+' '+i.sector+' '+i.country).toLowerCase().includes(q)).slice(0,20) : [];
+  return `<div class="full-screen">
+    <div class="appbar">
+      <div class="field-search" style="flex:1;margin-bottom:0"><input id="mobile-search-input" placeholder="Search companies, bonds, funds..." value="${escAttr(STATE.ui.search)}" autofocus>${icon('search')}</div>
+      <div class="appbar-btn" data-action="close-search">${icon('x')}</div>
+    </div>
+    <div class="screen screen-narrow">
+      <div class="card search-results-list" id="mobile-search-results">
+        ${q? (matches.length? matches.map(i=>`<div class="sr-item" data-action="open:${i.id}"><div class="inv-avatar" style="width:34px;height:34px">${initials(i.name)}</div><div class="inv-main"><div class="inv-name">${esc(i.name)}</div><div class="inv-sub">${esc(i.identifier)} · ${typeInfo(i.type).plural}</div></div></div>`).join('') : emptyState('inbox','No matches','Try a different name, ticker or sector.')) : emptyState('search','Search everything','Companies, bonds, funds, tickers and sectors.')}
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   EVENT HANDLING
+============================================================ */
+function ensureCriterion(inv, catId, crId){
+  if(!inv.analysis.categories[catId]) inv.analysis.categories[catId] = {criteria:{}, notes:''};
+  if(!inv.analysis.categories[catId].criteria[crId]) inv.analysis.categories[catId].criteria[crId] = {score:null,confidence:null,reasoning:'',evidence:[]};
+  return inv.analysis.categories[catId].criteria[crId];
+}
+function toast(msg){ STATE.ui.toast=msg; render(); setTimeout(()=>{ STATE.ui.toast=null; render(); }, 2600); }
+
+function bindEvents(){
+  root.onclick = function(e){
+    const el = e.target.closest('[data-action]');
+    if(!el) return;
+    handleAction(el.getAttribute('data-action'), e);
+  };
+  root.onchange = function(e){
+    const bindEl = e.target.closest('[data-bind]');
+    if(bindEl){ handleBind(bindEl.getAttribute('data-bind'), bindEl.value); return; }
+  };
+  if(!root._blurBound){
+    root.addEventListener('blur', function(e){
+      const t = e.target;
+      if(t.matches && t.matches('[data-blur]')){ handleBlur(t.getAttribute('data-blur'), t.value); }
+    }, true);
+    root._blurBound = true;
+  }
+
+  const analysesSearch = document.getElementById('analyses-search-input');
+  if(analysesSearch){
+    analysesSearch.oninput = function(ev){
+      STATE.ui.filters.q = ev.target.value;
+      const typeKey = STATE.ui.route.type;
+      const c = document.getElementById('analyses-list-container');
+      if(c && typeKey) c.innerHTML = analysesListOrEmpty(filteredAnalyses(typeKey), typeKey);
+    };
+  }
+  const mobileSearch = document.getElementById('mobile-search-input');
+  if(mobileSearch){
+    mobileSearch.oninput = function(ev){
+      STATE.ui.search = ev.target.value;
+      const q = STATE.ui.search.trim().toLowerCase();
+      const matches = q? STATE.investments.filter(i => (i.name+' '+i.identifier+' '+i.sector+' '+i.country).toLowerCase().includes(q)).slice(0,20) : [];
+      const c = document.getElementById('mobile-search-results');
+      if(c) c.innerHTML = q? (matches.length? matches.map(i=>`<div class="sr-item" data-action="open:${i.id}"><div class="inv-avatar" style="width:34px;height:34px">${initials(i.name)}</div><div class="inv-main"><div class="inv-name">${esc(i.name)}</div><div class="inv-sub">${esc(i.identifier)} · ${typeInfo(i.type).plural}</div></div></div>`).join('') : emptyState('inbox','No matches','Try a different name, ticker or sector.')) : emptyState('search','Search everything','Companies, bonds, funds, tickers and sectors.');
+    };
+  }
+
+  const importInput = document.getElementById('import-file-input');
+  if(importInput){
+    importInput.onchange = function(ev){
+      const file = ev.target.files && ev.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = function(){
+        try{
+          const parsed = JSON.parse(reader.result);
+          if(!parsed || !Array.isArray(parsed.investments)) throw new Error('bad shape');
+          STATE.investments = parsed.investments;
+          STATE.frameworkOverrides = parsed.frameworkOverrides || {};
+          persist(); render(); toast('Data imported');
+        }catch(err){ toast('Could not read that file. Expected a Keel export.'); }
+      };
+      reader.readAsText(file);
+    };
+  }
+}
+
+function handleBind(kind, value){
+  if(kind.startsWith('rank-profile:')){ const type=kind.split(':')[1]; STATE.ui.rankProfile[type]=value; render(); return; }
+  if(kind.startsWith('status:')){ const id=kind.split(':')[1]; const inv=findInv(id); inv.status=value; touch(inv); render(); return; }
+  if(kind.startsWith('weight:')){ const [,type,catId]=kind.split(':'); if(!STATE.frameworkOverrides[type]) STATE.frameworkOverrides[type]={};
+    const f=FRAMEWORKS[type]; f.categories.forEach(c=>{ if(STATE.frameworkOverrides[type][c.id]==null) STATE.frameworkOverrides[type][c.id]=c.weight; });
+    STATE.frameworkOverrides[type][catId] = parseFloat(value)||0; render(); return; }
+}
+function handleBlur(kind, value){
+  const parts = kind.split(':');
+  const tag = parts[0];
+  if(tag==='reason'){ const [,id,catId,crId]=parts; const inv=findInv(id); const c=ensureCriterion(inv,catId,crId); c.reasoning=value; touch(inv); return; }
+  if(tag==='val'){ const id=parts[1]; const key=parts.slice(2).join(':'); const inv=findInv(id); inv.analysis.valuation[key]=value; touch(inv); return; }
+  if(tag==='dcf'){ const id=parts[1]; const key=parts[2]; const inv=findInv(id); if(!inv.analysis.dcf) inv.analysis.dcf={}; inv.analysis.dcf[key]=value; touch(inv); return; }
+  if(tag==='field'){ const id=parts[1]; const key=parts[2]; const inv=findInv(id); inv.analysis[key]=value; touch(inv); return; }
+  if(tag==='risknote'){ const id=parts[1]; const key=parts[2]; const inv=findInv(id); inv.analysis.riskNotes[key]=value; touch(inv); return; }
+  if(tag==='thesis'){ const id=parts[1]; const key=parts[2]; const inv=findInv(id); if(!inv.analysis.thesis) inv.analysis.thesis={}; inv.analysis.thesis[key]=value; touch(inv); return; }
+  if(tag==='invfield'){ const id=parts[1]; const key=parts[2]; const inv=findInv(id); inv[key]=value; touch(inv); return; }
+}
+
+function handleAction(action, e){
+  const parts = action.split(':');
+  const kind = parts[0];
+
+  if(kind==='goto'){
+    const sub = parts[1];
+    if(sub==='dashboard'){ nav('dashboard'); return; }
+    if(sub==='research'){ nav('research'); return; }
+    if(sub==='type'){ nav('type', parts[2]); return; }
+    if(sub==='analyses'){ nav('analyses', parts[2]); return; }
+    if(sub==='rankings'){ nav('rankings', parts[2]); return; }
+    if(sub==='framework'){ nav('framework', parts[2]); return; }
+    if(sub==='watchlist'){ nav('watchlist', null, null, parts[2]); return; }
+    if(sub==='settings'){ nav('settings'); return; }
+    if(sub==='open'){ const id=parts[2]; const tab=parts[3]||'summary'; const inv=findInv(id); if(inv) nav('workspace', inv.type, id, tab); return; }
+    return;
+  }
+  if(kind==='open'){ const id=parts[1]; const inv=findInv(id); if(inv) nav('workspace', inv.type, id, 'summary'); return; }
+  if(kind==='go-back'){ goBack(); return; }
+
+  if(kind==='open-search'){ STATE.ui.search=''; STATE.ui.searchOpen=true; render(); return; }
+  if(kind==='close-search'){ STATE.ui.searchOpen=false; render(); return; }
+
+  if(kind==='new-analysis'){ STATE.ui.modal={type:'new', typeKey:parts[1]}; render(); return; }
+  if(kind==='close-modal'){ STATE.ui.modal=null; render(); return; }
+  if(kind==='close-modal-overlay'){ if(e.target===e.currentTarget){ STATE.ui.modal=null; render(); } return; }
+  if(kind==='create-analysis'){
+    const typeKey = parts[1];
+    const name = document.getElementById('na_name').value.trim();
+    if(!name){ toast('Name is required'); return; }
+    const inv = makeInvestment({
+      type:typeKey, name,
+      identifier: document.getElementById('na_identifier').value.trim(),
+      currency: document.getElementById('na_currency').value.trim()||'USD',
+      country: document.getElementById('na_country').value.trim(),
+      sector: document.getElementById('na_sector').value.trim(),
+      description: document.getElementById('na_desc').value.trim(),
+      status:'Draft',
+    });
+    STATE.investments.unshift(inv);
+    STATE.ui.modal=null;
+    nav('workspace', typeKey, inv.id, 'analysis');
+    return;
+  }
+
+  if(kind==='set-status-filter'){ STATE.ui.filters.status = parts[1]; render(); return; }
+  if(kind==='toggle-watch'){ const inv=findInv(parts[1]); inv.watchlist=!inv.watchlist; touch(inv); render(); return; }
+  if(kind==='delete-analysis'){ STATE.ui.modal={type:'confirmDelete', id:parts[1]}; render(); return; }
+  if(kind==='confirm-delete'){
+    const id = parts[1];
+    const inv = findInv(id);
+    const typeKey = inv? inv.type : null;
+    STATE.investments = STATE.investments.filter(i=>i.id!==id);
+    STATE.ui.modal = null;
+    if(typeKey) nav('analyses', typeKey); else nav('dashboard');
+    toast('Analysis deleted');
+    return;
+  }
+  if(kind==='toggle-cat'){ const id=parts[1], catId=parts[2]; if(!STATE.ui.openCats[id]) STATE.ui.openCats[id]={}; STATE.ui.openCats[id][catId]=!STATE.ui.openCats[id][catId]; render(); return; }
+
+  if(kind==='set-score'){ const id=parts[1], catId=parts[2], crId=parts[3], v=parseInt(parts[4]); const inv=findInv(id); const c=ensureCriterion(inv,catId,crId); c.score = c.score===v? null : v; touch(inv); render(); return; }
+  if(kind==='set-conf'){ const id=parts[1], catId=parts[2], crId=parts[3], v=parseInt(parts[4]); const inv=findInv(id); const c=ensureCriterion(inv,catId,crId); c.confidence = c.confidence===v? null : v; touch(inv); render(); return; }
+
+  if(kind==='add-evidence'){ STATE.ui.modal={type:'evidence', key:parts.slice(1).join(':')}; render(); return; }
+  if(kind==='confirm-evidence'){ const key=parts.slice(1).join(':'); const val=document.getElementById('ev_input').value.trim(); if(val){ const [id,catId,crId]=key.split('|'); const inv=findInv(id); const c=ensureCriterion(inv,catId,crId); c.evidence.push(val); touch(inv); } STATE.ui.modal=null; render(); return; }
+  if(kind==='rm-evidence'){ const id=parts[1], catId=parts[2], crId=parts[3], idx=parseInt(parts[4]); const inv=findInv(id); const c=ensureCriterion(inv,catId,crId); c.evidence.splice(idx,1); touch(inv); render(); return; }
+
+  if(kind==='score-explain'){ STATE.ui.modal={type:'scoreExplain', id:parts[1]}; render(); return; }
+  if(kind==='save-version'){
+    const inv = findInv(parts[1]); const f=FRAMEWORKS[inv.type]; const w=currentFrameworkWeights(inv.type);
+    const os = overallScore(inv.analysis,f,w);
+    inv.analysis.versions.push({ts:Date.now(), overallScore:os, note:'Manual snapshot'});
+    touch(inv); render(); return;
+  }
+
+  if(kind==='reset-weights'){ delete STATE.frameworkOverrides[parts[1]]; render(); return; }
+  if(kind==='toggle-theme'){ STATE.ui.theme = STATE.ui.theme==='light'?'dark':'light'; persist(); render(); return; }
+  if(kind==='apply-update'){ applyUpdate(); return; }
+  if(kind==='dismiss-update-banner'){ STATE.ui.updateBannerDismissed = true; render(); return; }
+  if(kind==='toggle-auto-refresh'){
+    STATE.ui.autoRefreshOnUpdate = !STATE.ui.autoRefreshOnUpdate;
+    persist(); render();
+    if(STATE.ui.autoRefreshOnUpdate && updateAvailable) applyUpdate();
+    return;
+  }
+  if(kind==='check-for-updates'){
+    if(swRegistration){ swRegistration.update().then(function(){ toast('Checked for updates'); }).catch(function(){ toast('Could not check for updates'); }); }
+    else toast('Service worker not active yet');
+    return;
+  }
+
+  if(kind==='export-data'){
+    const payload = { exportedAt: new Date().toISOString(), investments: STATE.investments, frameworkOverrides: STATE.frameworkOverrides };
+    const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'keel-export-'+new Date().toISOString().slice(0,10)+'.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Export downloaded');
+    return;
+  }
+  if(kind==='trigger-import'){ const el=document.getElementById('import-file-input'); if(el) el.click(); return; }
+
+  if(kind==='github-save-connection'){
+    const repo = (document.getElementById('gh_repo')||{}).value || '';
+    const branch = (document.getElementById('gh_branch')||{}).value || 'main';
+    const token = (document.getElementById('gh_token')||{}).value || '';
+    if(!repo || !token){ toast('Repo and token are required'); return; }
+    STATE.github = { connected:true, repo:repo.trim(), branch:branch.trim()||'main', token:token.trim(), lastSync:null, autoSync:true };
+    persist(); render();
+    toast('GitHub connection saved');
+    return;
+  }
+  if(kind==='github-disconnect'){ clearTimeout(autoSyncTimer); STATE.github = { connected:false, repo:'', branch:'main', token:'', lastSync:null, autoSync:true }; persist(); render(); toast('Disconnected'); return; }
+  if(kind==='github-push'){ githubPush(); return; }
+  if(kind==='toggle-autosync'){ STATE.github.autoSync = !STATE.github.autoSync; if(STATE.github.autoSync) scheduleAutoSync(); else clearTimeout(autoSyncTimer); persist(); render(); return; }
+
+  if(kind==='clear-demo' || kind==='clear-all'){
+    STATE.investments = kind==='clear-all'? [] : STATE.investments.filter(()=>false);
+    if(kind==='clear-all'){ STATE.frameworkOverrides={}; }
+    persist(); render();
+    toast(kind==='clear-all'?'App reset':'Sample data cleared');
+    return;
+  }
+}
+
+/* ============================================================
+   SERVICE WORKER UPDATE LIFECYCLE
+============================================================ */
+let swRegistration = null;
+let updateAvailable = false;
+
+function applyUpdate(){
+  if(swRegistration && swRegistration.waiting){
+    swRegistration.waiting.postMessage('SKIP_WAITING');
+  }
+}
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('./service-worker.js').then(function(reg){
+      swRegistration = reg;
+      if(reg.waiting && navigator.serviceWorker.controller){
+        updateAvailable = true;
+        if(STATE.ui.autoRefreshOnUpdate) applyUpdate(); else render();
+      }
+      reg.addEventListener('updatefound', function(){
+        const newWorker = reg.installing;
+        if(!newWorker) return;
+        newWorker.addEventListener('statechange', function(){
+          if(newWorker.state==='installed' && navigator.serviceWorker.controller){
+            updateAvailable = true;
+            STATE.ui.updateBannerDismissed = false;
+            if(STATE.ui.autoRefreshOnUpdate) applyUpdate(); else render();
+          }
+        });
+      });
+    }).catch(function(){});
+
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function(){
+      if(refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
+  });
+}
+
+/* ============================================================
+   BOOT
+============================================================ */
+initState();
+render();
+</script>
+</body>
+</html>
