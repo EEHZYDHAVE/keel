@@ -74,6 +74,8 @@ input,textarea,select{font-family:inherit;}
   min-height:52px;
 }
 .appbar-btn{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--text2);flex:none;}
+.appbar-btn[data-action="go-back"]{background:#5AC8FA;color:#04293F;}
+.appbar-btn[data-action="go-back"]:active{filter:brightness(0.95);}
 .appbar-btn:active{background:var(--elevated);}
 .appbar-title{font-size:16px;font-weight:700;letter-spacing:-.01em;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .appbar-sub{font-size:11px;color:var(--muted);font-weight:500;}
@@ -234,7 +236,8 @@ textarea.reason{width:100%;background:var(--surface2);border:1px solid var(--bor
 .sheet-grab{width:36px;height:4px;border-radius:3px;background:var(--border);margin:0 auto 14px;}
 .sheet-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
 .sheet-title{font-size:16px;font-weight:800;}
-.sheet-close{width:30px;height:30px;border-radius:50%;background:var(--elevated);display:flex;align-items:center;justify-content:center;color:var(--text2);}
+.sheet-close{width:30px;height:30px;border-radius:50%;background:#FF5F57;display:flex;align-items:center;justify-content:center;color:#fff;}
+.sheet-close:active{filter:brightness(0.95);}
 .full-screen{position:fixed;inset:0;background:var(--bg);z-index:100;display:flex;flex-direction:column;}
 .full-screen .screen{padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));}
 
@@ -477,7 +480,7 @@ function initials(name){ return (name||'?').split(/\s+/).slice(0,2).map(w=>w[0])
 let STATE = null;
 const LS_KEY = 'keel_invresearch_v1';
 const LS_KEY_LEGACY = 'ledger_invresearch_v1';
-const APP_VERSION = 'v2'; // keep in sync with CACHE_VERSION suffix in service-worker.js
+const APP_VERSION = 'v3'; // keep in sync with CACHE_VERSION suffix in service-worker.js
 
 function newAnalysis(){ return { categories:{}, valuation:{}, riskNotes:{keyRisks:'',lossScenarios:'',whatWouldChangeMind:''}, thesis:{}, versions:[] }; }
 
@@ -571,7 +574,8 @@ function initState(){
     STATE.ui.tabMemory = STATE.ui.tabMemory || {};
     if(STATE.ui.autoRefreshOnUpdate==null) STATE.ui.autoRefreshOnUpdate = false;
     STATE.ui.updateBannerDismissed = false;
-    STATE.github = STATE.github || { connected:false, repo:'', branch:'main', token:'', lastSync:null, autoSync:true };
+    STATE.github = STATE.github || { connected:false, repo:'', branch:'main', token:'', lastSync:null, autoSync:true, lastError:null };
+    if(STATE.github.lastError===undefined) STATE.github.lastError=null;
     if(STATE.github.autoSync==null) STATE.github.autoSync = true;
     return;
   }
@@ -597,7 +601,7 @@ function initState(){
       updateBannerDismissed:false,
       tabMemory:{},
     },
-    github: { connected:false, repo:'', branch:'main', token:'', lastSync:null, autoSync:true },
+    github: { connected:false, repo:'', branch:'main', token:'', lastSync:null, autoSync:true, lastError:null },
   };
   persist();
 }
@@ -617,7 +621,7 @@ let autoSyncTimer = null;
 function scheduleAutoSync(){
   if(!STATE.github || !STATE.github.connected || !STATE.github.autoSync) return;
   clearTimeout(autoSyncTimer);
-  autoSyncTimer = setTimeout(function(){ githubPush({silent:true}); }, 4000);
+  autoSyncTimer = setTimeout(function(){ githubPush({silent:true}); }, 6000);
 }
 function flashSave(){ STATE.ui.savingFlash=true; render(); setTimeout(()=>{ STATE.ui.savingFlash=false; render(); }, 550); }
 function esc(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); }
@@ -635,25 +639,44 @@ async function githubPush(opts){
   const content = btoa(unescape(encodeURIComponent(JSON.stringify(payload,null,2))));
   if(!opts.silent) toast('Pushing to GitHub…');
   try{
-    let sha;
-    const getRes = await fetch(apiBase+`?ref=${encodeURIComponent(gh.branch)}`, { headers:{ 'Authorization':'Bearer '+gh.token, 'Accept':'application/vnd.github+json' } });
-    if(getRes.status===200){ const j = await getRes.json(); sha = j.sha; }
-    else if(getRes.status!==404){ throw new Error('GitHub responded '+getRes.status); }
-    const putRes = await fetch(apiBase, {
-      method:'PUT',
-      headers:{ 'Authorization':'Bearer '+gh.token, 'Accept':'application/vnd.github+json', 'Content-Type':'application/json' },
-      body: JSON.stringify({ message:'Keel data sync: '+new Date().toISOString(), content, branch:gh.branch, sha }),
-    });
-    if(!putRes.ok){ const t = await putRes.text(); throw new Error('GitHub responded '+putRes.status+': '+t.slice(0,140)); }
+    await githubPushAttempt(apiBase, gh, content);
     STATE.github.lastSync = Date.now();
+    STATE.github.lastError = null;
     ghNoticeShown = false;
     persist(); render();
     if(!opts.silent) toast('Pushed to GitHub');
   }catch(err){
-    if(!opts.silent || !ghNoticeShown){
-      toast('Push failed. This only works once the file is downloaded and opened outside Claude\'s preview. '+(err&&err.message?err.message:''));
-      ghNoticeShown = true;
+    // A 409 means the file on GitHub changed since we last read its sha — most often because
+    // the desktop and mobile builds (or two tabs) both auto-synced to the same keel-data.json
+    // around the same time. Retry once against the latest sha before giving up.
+    if(err && err.conflict && !opts._retried){
+      try{ await githubPush(Object.assign({}, opts, {_retried:true})); return; }catch(e2){}
     }
+    STATE.github.lastError = (err && err.message) ? err.message : 'Unknown error.';
+    // Background auto-syncs stay quiet even when they fail — the data model already confirms
+    // pushes land correctly, so a popup here is just noise. The real reason is still recorded
+    // in STATE.github.lastError and shown in Settings; only a manual Push tap gets a toast.
+    if(!opts.silent){
+      toast('Push failed. '+STATE.github.lastError);
+    }
+  }
+}
+async function githubPushAttempt(apiBase, gh, content){
+  let sha;
+  const getRes = await fetch(apiBase+`?ref=${encodeURIComponent(gh.branch)}`, { headers:{ 'Authorization':'Bearer '+gh.token, 'Accept':'application/vnd.github+json' } });
+  if(getRes.status===200){ const j = await getRes.json(); sha = j.sha; }
+  else if(getRes.status!==404){ const e=new Error('GitHub responded '+getRes.status+' while checking the file.'); e.status=getRes.status; throw e; }
+  const putRes = await fetch(apiBase, {
+    method:'PUT',
+    headers:{ 'Authorization':'Bearer '+gh.token, 'Accept':'application/vnd.github+json', 'Content-Type':'application/json' },
+    body: JSON.stringify({ message:'Keel data sync: '+new Date().toISOString(), content, branch:gh.branch, sha }),
+  });
+  if(!putRes.ok){
+    const t = await putRes.text();
+    const e = new Error('GitHub responded '+putRes.status+': '+t.slice(0,140));
+    e.status = putRes.status;
+    if(putRes.status===409) e.conflict = true;
+    throw e;
   }
 }
 
@@ -680,7 +703,7 @@ async function githubPull(opts){
     persist(); render();
     if(!opts.silent) toast('Pulled latest data from GitHub');
   }catch(err){
-    toast('Pull failed. This only works once the file is downloaded and opened outside Claude\'s preview. '+(err&&err.message?err.message:''));
+    toast('Pull failed. '+(err&&err.message?err.message:'Unknown error.'));
   }
 }
 
@@ -847,7 +870,7 @@ function updateBannerHtml(){
 }
 function sheetWrap(title, bodyHtml){
   return `<div class="sheet-overlay" data-action="close-modal-overlay">
-    <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sheet" data-action="noop">
       <div class="sheet-grab"></div>
       <div class="sheet-head"><div class="sheet-title">${title}</div><div class="sheet-close" data-action="close-modal">${icon('x')}</div></div>
       ${bodyHtml}
@@ -1140,6 +1163,7 @@ function settingsPage(){
         <div class="btn btn-ghost btn-sm" style="flex:1" data-action="github-pull">${icon('download')} Pull Latest</div>
         <div class="btn btn-ghost btn-sm btn-danger" style="flex:1" data-action="github-disconnect">Disconnect</div>
       </div>
+      ${gh.lastError? `<div style="font-size:11.5px;color:var(--negative);margin-top:10px">Last sync error: ${esc(gh.lastError)}</div>` : ''}
     ` : `
       <div class="form-field"><label>Repository (owner/repo)</label><input type="text" id="gh_repo" placeholder="e.g. yourname/keel-data"></div>
       <div class="form-field"><label>Branch</label><input type="text" id="gh_branch" placeholder="main" value="main"></div>
@@ -1607,7 +1631,8 @@ function handleAction(action, e){
 
   if(kind==='new-analysis'){ STATE.ui.modal={type:'new', typeKey:parts[1]}; render(); return; }
   if(kind==='close-modal'){ STATE.ui.modal=null; render(); return; }
-  if(kind==='close-modal-overlay'){ if(e.target===e.currentTarget){ STATE.ui.modal=null; render(); } return; }
+  if(kind==='close-modal-overlay'){ STATE.ui.modal=null; render(); return; }
+  if(kind==='noop'){ return; }
   if(kind==='create-analysis'){
     const typeKey = parts[1];
     const name = document.getElementById('na_name').value.trim();
@@ -1724,7 +1749,7 @@ function handleAction(action, e){
     toast('GitHub connection saved');
     return;
   }
-  if(kind==='github-disconnect'){ clearTimeout(autoSyncTimer); STATE.github = { connected:false, repo:'', branch:'main', token:'', lastSync:null, autoSync:true }; persist(); render(); toast('Disconnected'); return; }
+  if(kind==='github-disconnect'){ clearTimeout(autoSyncTimer); STATE.github = { connected:false, repo:'', branch:'main', token:'', lastSync:null, autoSync:true, lastError:null }; persist(); render(); toast('Disconnected'); return; }
   if(kind==='github-push'){ githubPush(); return; }
   if(kind==='github-pull'){ STATE.ui.modal={type:'confirmPull'}; render(); return; }
   if(kind==='github-pull-confirmed'){ STATE.ui.modal=null; githubPull(); return; }

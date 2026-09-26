@@ -76,7 +76,8 @@ input,textarea,select{font-family:inherit;}
 .brand-mark svg{width:14px;height:14px;}
 .brand-text .t1{font-weight:700;font-size:14.5px;letter-spacing:-.01em;}
 .brand-text .t2{font-size:10.5px;color:var(--muted);}
-.back-btn{display:inline-flex;align-items:center;gap:6px;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;padding:5px 9px 5px 5px;border-radius:20px;margin-bottom:10px;}
+.back-btn{display:inline-flex;align-items:center;gap:6px;color:#5B9FD8;background:#5B9FD81F;font-size:12px;font-weight:600;cursor:pointer;padding:5px 10px 5px 6px;border-radius:20px;margin-bottom:10px;}
+.back-btn:hover{filter:brightness(1.12);}
 .back-btn:hover{background:var(--elevated);color:var(--text);}
 .back-btn svg{width:15px;height:15px;}
 .search-wrap{position:relative;flex:1;max-width:460px;}
@@ -293,7 +294,8 @@ textarea.reason::placeholder{color:var(--muted);}
 .modal.wide{max-width:680px;}
 .modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
 .modal-title{font-size:15px;font-weight:700;}
-.modal-close{cursor:pointer;color:var(--muted);width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:6px;}
+.modal-close{cursor:pointer;background:#FF5F57;color:#fff;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:50%;}
+.modal-close:hover{filter:brightness(1.08);}
 .modal-close:hover{background:var(--elevated);}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
 .form-field label{display:block;font-size:11px;color:var(--text2);font-weight:600;margin-bottom:6px;}
@@ -602,7 +604,7 @@ function initials(name){ return (name||'?').split(/\s+/).slice(0,2).map(w=>w[0])
 ============================================================ */
 let STATE = null;
 const LS_KEY = 'keel_invresearch_v1';
-const APP_VERSION = 'v2'; // keep in sync with CACHE_VERSION suffix in service-worker.js
+const APP_VERSION = 'v3'; // keep in sync with CACHE_VERSION suffix in service-worker.js
 const LS_KEY_LEGACY = 'ledger_invresearch_v1';
 
 function newAnalysis(){ return { categories:{}, valuation:{}, riskNotes:{keyRisks:'',lossScenarios:'',whatWouldChangeMind:''}, thesis:{}, versions:[] }; }
@@ -697,7 +699,8 @@ function initState(){
     STATE.ui.mobileNavOpen = !!STATE.ui.mobileNavOpen;
     if(STATE.ui.autoRefreshOnUpdate==null) STATE.ui.autoRefreshOnUpdate = false;
     STATE.ui.updateBannerDismissed = false;
-    STATE.github = STATE.github || { connected:false, repo:'', branch:'main', token:'', lastSync:null, autoSync:true };
+    STATE.github = STATE.github || { connected:false, repo:'', branch:'main', token:'', lastSync:null, autoSync:true, lastError:null };
+    if(STATE.github.lastError===undefined) STATE.github.lastError=null;
     if(STATE.github.autoSync==null) STATE.github.autoSync = true;
     return;
   }
@@ -723,7 +726,7 @@ function initState(){
       autoRefreshOnUpdate:false,
       updateBannerDismissed:false,
     },
-    github: { connected:false, repo:'', branch:'main', token:'', lastSync:null, autoSync:true },
+    github: { connected:false, repo:'', branch:'main', token:'', lastSync:null, autoSync:true, lastError:null },
   };
   persist();
 }
@@ -743,7 +746,7 @@ let autoSyncTimer = null;
 function scheduleAutoSync(){
   if(!STATE.github || !STATE.github.connected || !STATE.github.autoSync) return;
   clearTimeout(autoSyncTimer);
-  autoSyncTimer = setTimeout(function(){ githubPush({silent:true}); }, 4000);
+  autoSyncTimer = setTimeout(function(){ githubPush({silent:true}); }, 6000);
 }
 function flashSave(){ STATE.ui.savingFlash=true; render(); setTimeout(()=>{ STATE.ui.savingFlash=false; render(); }, 550); }
 
@@ -1296,6 +1299,7 @@ function settingsPage(){
         <div class="btn btn-ghost btn-sm" data-action="github-pull">${icon('download')} Pull Latest</div>
         <div class="btn btn-ghost btn-sm btn-danger" data-action="github-disconnect">Disconnect</div>
       </div>
+      ${STATE.github.lastError? `<div style="font-size:11.5px;color:var(--negative);margin-top:10px">Last sync error: ${esc(STATE.github.lastError)}</div>` : ''}
     ` : `
       <div class="form-field" style="margin-bottom:10px"><label>Repository (owner/repo)</label><input type="text" id="gh_repo" placeholder="e.g. yourname/keel-data"></div>
       <div class="form-grid" style="grid-template-columns:1fr 2fr">
@@ -1304,7 +1308,7 @@ function settingsPage(){
       </div>
       <div class="btn btn-primary btn-sm" data-action="github-save-connection" style="margin-top:4px">Connect</div>
     `}
-    <div class="callout" style="margin-top:14px">${icon('info')} Data is pushed to <b>keel-data.json</b> in the repo you choose, the same pattern as Jarful. This requires a token with write access to that repo; use a private repo. <b>Sync only works once this file is downloaded and opened outside Claude's preview</b>; Claude's hosted preview blocks outbound requests to the GitHub API.</div>
+    <div class="callout" style="margin-top:14px">${icon('info')} Data is pushed to <b>keel-data.json</b> in the repo you choose, the same pattern as Jarful. This requires a token with write access to that repo; use a private repo.</div>
   </div>
 
   <div class="card" style="max-width:560px">
@@ -1948,7 +1952,7 @@ function handleAction(action, e){
     toast('GitHub connection saved');
     return;
   }
-  if(kind==='github-disconnect'){ clearTimeout(autoSyncTimer); STATE.github = { connected:false, repo:'', branch:'main', token:'', lastSync:null, autoSync:true }; persist(); render(); toast('Disconnected'); return; }
+  if(kind==='github-disconnect'){ clearTimeout(autoSyncTimer); STATE.github = { connected:false, repo:'', branch:'main', token:'', lastSync:null, autoSync:true, lastError:null }; persist(); render(); toast('Disconnected'); return; }
   if(kind==='github-push'){ githubPush(); return; }
   if(kind==='github-pull'){ STATE.ui.modal={type:'confirmPull'}; render(); return; }
   if(kind==='github-pull-confirmed'){ STATE.ui.modal=null; githubPull(); return; }
@@ -1978,25 +1982,44 @@ async function githubPush(opts){
   const content = btoa(unescape(encodeURIComponent(JSON.stringify(payload,null,2))));
   if(!opts.silent) toast('Pushing to GitHub…');
   try{
-    let sha;
-    const getRes = await fetch(apiBase+`?ref=${encodeURIComponent(gh.branch)}`, { headers:{ 'Authorization':'Bearer '+gh.token, 'Accept':'application/vnd.github+json' } });
-    if(getRes.status===200){ const j = await getRes.json(); sha = j.sha; }
-    else if(getRes.status!==404){ throw new Error('GitHub responded '+getRes.status); }
-    const putRes = await fetch(apiBase, {
-      method:'PUT',
-      headers:{ 'Authorization':'Bearer '+gh.token, 'Accept':'application/vnd.github+json', 'Content-Type':'application/json' },
-      body: JSON.stringify({ message:'Keel data sync: '+new Date().toISOString(), content, branch:gh.branch, sha }),
-    });
-    if(!putRes.ok){ const t = await putRes.text(); throw new Error('GitHub responded '+putRes.status+': '+t.slice(0,140)); }
+    await githubPushAttempt(apiBase, gh, content, opts._retried);
     STATE.github.lastSync = Date.now();
+    STATE.github.lastError = null;
     ghNoticeShown = false;
     persist(); render();
     if(!opts.silent) toast('Pushed to GitHub');
   }catch(err){
-    if(!opts.silent || !ghNoticeShown){
-      toast('Push failed. This only works once the file is downloaded and opened outside Claude\'s preview. '+(err&&err.message?err.message:''));
-      ghNoticeShown = true;
+    // A 409 means the file on GitHub changed since we last read its sha — most often because
+    // the desktop and mobile builds (or two tabs) both auto-synced to the same keel-data.json
+    // around the same time. Retry once against the latest sha before giving up.
+    if(err && err.conflict && !opts._retried){
+      try{ await githubPush(Object.assign({}, opts, {_retried:true})); return; }catch(e2){}
     }
+    STATE.github.lastError = (err && err.message) ? err.message : 'Unknown error.';
+    // Background auto-syncs stay quiet even when they fail — the data model already confirms
+    // pushes land correctly, so a popup here is just noise. The real reason is still recorded
+    // in STATE.github.lastError and shown in Settings; only a manual Push click gets a toast.
+    if(!opts.silent){
+      toast('Push failed. '+STATE.github.lastError);
+    }
+  }
+}
+async function githubPushAttempt(apiBase, gh, content, isRetry){
+  let sha;
+  const getRes = await fetch(apiBase+`?ref=${encodeURIComponent(gh.branch)}`, { headers:{ 'Authorization':'Bearer '+gh.token, 'Accept':'application/vnd.github+json' } });
+  if(getRes.status===200){ const j = await getRes.json(); sha = j.sha; }
+  else if(getRes.status!==404){ const e=new Error('GitHub responded '+getRes.status+' while checking the file.'); e.status=getRes.status; throw e; }
+  const putRes = await fetch(apiBase, {
+    method:'PUT',
+    headers:{ 'Authorization':'Bearer '+gh.token, 'Accept':'application/vnd.github+json', 'Content-Type':'application/json' },
+    body: JSON.stringify({ message:'Keel data sync: '+new Date().toISOString(), content, branch:gh.branch, sha }),
+  });
+  if(!putRes.ok){
+    const t = await putRes.text();
+    const e = new Error('GitHub responded '+putRes.status+': '+t.slice(0,140));
+    e.status = putRes.status;
+    if(putRes.status===409) e.conflict = true;
+    throw e;
   }
 }
 
@@ -2024,7 +2047,7 @@ async function githubPull(opts){
     persist(); render();
     if(!opts.silent) toast('Pulled latest data from GitHub');
   }catch(err){
-    toast('Pull failed. This only works once the file is downloaded and opened outside Claude\'s preview. '+(err&&err.message?err.message:''));
+    toast('Pull failed. '+(err&&err.message?err.message:'Unknown error.'));
   }
 }
 
