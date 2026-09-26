@@ -29,6 +29,7 @@
   --radius:12px; --radius-sm:9px;
   --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
   --tabbar-h:58px;
+  --page-bg:#05070A;
 }
 :root:not([data-theme="light"]){ color-scheme:dark; }
 :root[data-theme="light"]{
@@ -41,6 +42,7 @@
   --negative:#D5424B; --negative-soft:#D5424B17;
   --warning:#B4791E; --warning-soft:#B4791E17;
   --purple:#6D5CDB; --purple-soft:#6D5CDB17;
+  --page-bg:#DCE0E8;
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
 html,body{height:100%;}
@@ -55,7 +57,14 @@ button{font-family:inherit;}
 input,textarea,select{font-family:inherit;}
 .num{font-variant-numeric:tabular-nums;}
 
-#app{min-height:100vh; display:flex; flex-direction:column;}
+/* #app is capped to a phone-width column and centered; the transform gives it its
+   own containing block so position:fixed children (tabbar, fab, sheets) stay pinned
+   to THIS frame instead of the full browser window on wider screens. */
+#app{height:100vh; max-width:520px; margin:0 auto; position:relative; transform:translateZ(0); background:var(--bg); overflow-y:auto; -webkit-overflow-scrolling:touch; display:flex; flex-direction:column;}
+@media(min-width:560px){
+  html,body{background:var(--page-bg);}
+  #app{box-shadow:0 0 0 1px var(--border-soft), 0 40px 90px #00000060;}
+}
 
 /* ---------- top app bar ---------- */
 .appbar{
@@ -468,7 +477,7 @@ function initials(name){ return (name||'?').split(/\s+/).slice(0,2).map(w=>w[0])
 let STATE = null;
 const LS_KEY = 'keel_invresearch_v1';
 const LS_KEY_LEGACY = 'ledger_invresearch_v1';
-const APP_VERSION = 'v1'; // keep in sync with CACHE_VERSION suffix in service-worker.js
+const APP_VERSION = 'v5'; // keep in sync with CACHE_VERSION suffix in service-worker.js
 
 function newAnalysis(){ return { categories:{}, valuation:{}, riskNotes:{keyRisks:'',lossScenarios:'',whatWouldChangeMind:''}, thesis:{}, versions:[] }; }
 
@@ -559,6 +568,7 @@ function initState(){
     STATE.ui.theme = STATE.ui.theme || 'dark';
     STATE.ui.avatarMenuOpen = !!STATE.ui.avatarMenuOpen;
     STATE.ui.searchOpen = !!STATE.ui.searchOpen;
+    STATE.ui.tabMemory = STATE.ui.tabMemory || {};
     if(STATE.ui.autoRefreshOnUpdate==null) STATE.ui.autoRefreshOnUpdate = false;
     STATE.ui.updateBannerDismissed = false;
     STATE.github = STATE.github || { connected:false, repo:'', branch:'main', token:'', lastSync:null, autoSync:true };
@@ -585,6 +595,7 @@ function initState(){
       searchOpen:false,
       autoRefreshOnUpdate:false,
       updateBannerDismissed:false,
+      tabMemory:{},
     },
     github: { connected:false, repo:'', branch:'main', token:'', lastSync:null, autoSync:true },
   };
@@ -646,6 +657,33 @@ async function githubPush(opts){
   }
 }
 
+async function githubPull(opts){
+  opts = opts || {};
+  const gh = STATE.github;
+  if(!gh.connected){ if(!opts.silent) toast('Connect GitHub first'); return; }
+  const [owner, repoName] = (gh.repo||'').split('/');
+  if(!owner || !repoName){ if(!opts.silent) toast('Repo must be in the form owner/repo'); return; }
+  const path = 'keel-data.json';
+  const apiBase = `https://api.github.com/repos/${owner}/${repoName}/contents/${path}`;
+  if(!opts.silent) toast('Pulling from GitHub…');
+  try{
+    const res = await fetch(apiBase+`?ref=${encodeURIComponent(gh.branch)}`, { headers:{ 'Authorization':'Bearer '+gh.token, 'Accept':'application/vnd.github+json' } });
+    if(res.status===404){ toast('No keel-data.json found yet in that repo/branch — push first.'); return; }
+    if(!res.ok){ throw new Error('GitHub responded '+res.status); }
+    const j = await res.json();
+    const decoded = decodeURIComponent(escape(atob((j.content||'').replace(/\n/g,''))));
+    const parsed = JSON.parse(decoded);
+    if(!parsed || !Array.isArray(parsed.investments)) throw new Error('Unexpected file contents');
+    STATE.investments = parsed.investments;
+    STATE.frameworkOverrides = parsed.frameworkOverrides || {};
+    STATE.github.lastSync = Date.now();
+    persist(); render();
+    if(!opts.silent) toast('Pulled latest data from GitHub');
+  }catch(err){
+    toast('Pull failed. This only works once the file is downloaded and opened outside Claude\'s preview. '+(err&&err.message?err.message:''));
+  }
+}
+
 function statusBadge(s){ return `<span class="status-badge ${statusClass(s)}">${s}</span>`; }
 function catDotColor(catId){
   const colors=['var(--accent)','var(--purple)','var(--positive)','var(--warning)'];
@@ -663,6 +701,8 @@ function radial(score){
 
 ICONS.grid = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="8" height="8" rx="1.6"/><rect x="13" y="3" width="8" height="8" rx="1.6"/><rect x="3" y="13" width="8" height="8" rx="1.6"/><rect x="13" y="13" width="8" height="8" rx="1.6"/></svg>';
 ICONS.trash = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2m3 0-.9 12.2A2 2 0 0 1 15.1 21H8.9a2 2 0 0 1-2-1.8L6 7" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 11v6M14 11v6" stroke-linecap="round"/></svg>';
+ICONS.home = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11.5L12 4l8 7.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 10v9a1 1 0 0 0 1 1h3v-6h4v6h3a1 1 0 0 0 1-1v-9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+ICONS.grid = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="3.5" width="7" height="7" rx="1.3"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.3"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.3"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.3"/></svg>';
 ICONS.home = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11.5 12 4l8 7.5V20a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z" stroke-linejoin="round"/></svg>';
 
 /* ============================================================
@@ -672,23 +712,48 @@ const root = document.getElementById('app');
 
 function mobileTabFor(route){
   if(route.page==='dashboard') return 'home';
-  if(route.page==='watchlist') return 'watchlist';
+  if(route.page==='watchlist') return route.type? 'research' : 'watchlist';
   if(route.page==='settings') return 'settings';
   return 'research';
 }
 function parentRoute(route){
   if(route.page==='workspace') return {page:'analyses', type:route.type, id:null, tab:'summary'};
   if((route.page==='analyses'||route.page==='rankings'||route.page==='framework') && route.type) return {page:'type', type:route.type, id:null, tab:'summary'};
+  if(route.page==='watchlist' && route.type) return {page:'type', type:route.type, id:null, tab:'summary'};
   if(route.page==='type') return {page:'research', type:null, id:null, tab:'summary'};
   return {page:'dashboard', type:null, id:null, tab:'summary'};
 }
 function nav(page,type,id,tab){
   STATE.ui.route = {page, type:type||null, id:id||null, tab:tab||'summary'};
   STATE.ui.searchOpen = false;
+  STATE.ui.tabMemory[mobileTabFor(STATE.ui.route)] = STATE.ui.route;
   render();
   window.scrollTo(0,0);
 }
-function goBack(){ STATE.ui.route = parentRoute(STATE.ui.route); render(); window.scrollTo(0,0); }
+function goBack(){
+  STATE.ui.route = parentRoute(STATE.ui.route);
+  STATE.ui.tabMemory[mobileTabFor(STATE.ui.route)] = STATE.ui.route;
+  render();
+  window.scrollTo(0,0);
+}
+function rootRouteFor(tabId){
+  if(tabId==='research') return {page:'research', type:null, id:null, tab:'summary'};
+  if(tabId==='watchlist') return {page:'watchlist', type:null, id:null, tab:'all'};
+  if(tabId==='settings') return {page:'settings', type:null, id:null, tab:'summary'};
+  return {page:'dashboard', type:null, id:null, tab:'summary'};
+}
+function tabGo(tabId){
+  const current = mobileTabFor(STATE.ui.route);
+  if(current===tabId){
+    STATE.ui.route = rootRouteFor(tabId);
+  } else {
+    STATE.ui.route = STATE.ui.tabMemory[tabId] || rootRouteFor(tabId);
+  }
+  STATE.ui.searchOpen = false;
+  STATE.ui.tabMemory[mobileTabFor(STATE.ui.route)] = STATE.ui.route;
+  render();
+  window.scrollTo(0,0);
+}
 
 function render(){
   persist();
@@ -712,6 +777,10 @@ function shellHtml(){
   if(STATE.ui.modal && STATE.ui.modal.type==='scoreExplain') out += sheetWrap('Score explained', scoreExplainSheetBody(findInv(STATE.ui.modal.id)));
   if(STATE.ui.modal && STATE.ui.modal.type==='evidence') out += sheetWrap('Add source', evidenceSheetBody(STATE.ui.modal.key));
   if(STATE.ui.modal && STATE.ui.modal.type==='confirmDelete') out += sheetWrap('Delete this analysis?', confirmDeleteSheetBody(STATE.ui.modal.id));
+  if(STATE.ui.modal && STATE.ui.modal.type==='versionView') out += sheetWrap('Version snapshot', versionViewSheetBody(findInv(STATE.ui.modal.id), STATE.ui.modal.idx));
+  if(STATE.ui.modal && STATE.ui.modal.type==='confirmRestore') out += sheetWrap('Restore this version?', confirmRestoreSheetBody(STATE.ui.modal.id, STATE.ui.modal.idx));
+  if(STATE.ui.modal && STATE.ui.modal.type==='confirmDeleteVersion') out += sheetWrap('Delete this version?', confirmDeleteVersionSheetBody(STATE.ui.modal.id, STATE.ui.modal.idx));
+  if(STATE.ui.modal && STATE.ui.modal.type==='confirmPull') out += sheetWrap('Pull from GitHub?', confirmPullSheetBody());
   if(STATE.ui.toast) out += `<div class="toast">${STATE.ui.toast}</div>`;
   return out;
 }
@@ -729,7 +798,12 @@ function appBarHtml(){
     return `<div class="appbar"><div class="appbar-title">Research</div><div class="appbar-btn" data-action="open-search">${icon('search')}</div></div>`;
   }
   if(r.page==='watchlist'){
-    return `<div class="appbar"><div class="appbar-title">Watchlist</div><div class="appbar-btn" data-action="open-search">${icon('search')}</div></div>`;
+    const t = r.type? typeInfo(r.type) : null;
+    return `<div class="appbar">
+      ${t? `<div class="appbar-btn" data-action="go-back">${icon('chevronL')}</div>` : ''}
+      <div class="appbar-title">${t? t.label+' Watchlist' : 'Watchlist'}</div>
+      <div class="appbar-btn" data-action="open-search">${icon('search')}</div>
+    </div>`;
   }
   if(r.page==='settings'){
     return `<div class="appbar"><div class="appbar-title">Settings</div></div>`;
@@ -756,10 +830,10 @@ function appBarHtml(){
 function tabbarHtml(){
   const active = mobileTabFor(STATE.ui.route);
   const items = [
-    {id:'home', label:'Home', ic:'home', go:'goto:dashboard'},
-    {id:'research', label:'Research', ic:'grid', go:'goto:research'},
-    {id:'watchlist', label:'Watchlist', ic:'star', go:'goto:watchlist:all'},
-    {id:'settings', label:'Settings', ic:'settings', go:'goto:settings'},
+    {id:'home', label:'Home', ic:'home', go:'tabgo:home'},
+    {id:'research', label:'Research', ic:'grid', go:'tabgo:research'},
+    {id:'watchlist', label:'Watchlist', ic:'star', go:'tabgo:watchlist'},
+    {id:'settings', label:'Settings', ic:'settings', go:'tabgo:settings'},
   ];
   return `<div class="tabbar">${items.map(it=>`<div class="tabbar-item ${active===it.id?'active':''}" data-action="${it.go}">${icon(it.ic)}<span>${it.label}</span></div>`).join('')}</div>`;
 }
@@ -790,7 +864,7 @@ function pageHtml(){
   if(r.page==='rankings') return rankingsPage(r.type);
   if(r.page==='framework') return frameworkPage(r.type);
   if(r.page==='workspace') return workspacePage(r.id, r.tab);
-  if(r.page==='watchlist') return watchlistPage(r.tab);
+  if(r.page==='watchlist') return watchlistPage(r.type, r.tab);
   if(r.page==='settings') return settingsPage();
   return dashboardPage();
 }
@@ -844,6 +918,7 @@ function invCardRow(inv, opts){
     <div class="inv-right">
       ${scorePill(score)}
       ${riskPill(b.risk)}
+      ${opts.deletable? `<div style="color:var(--negative);padding:2px" data-action="delete-analysis:${inv.id}">${icon('trash')}</div>` : ''}
     </div>
   </div>`;
 }
@@ -878,8 +953,8 @@ function researchHubPage(){
    TYPE OVERVIEW
 ============================================================ */
 function typeSegCtl(typeKey, active){
-  const segs = [{id:'type',label:'Overview'},{id:'analyses',label:'Analyses'},{id:'rankings',label:'Rankings'},{id:'framework',label:'Framework'}];
-  return `<div class="segctl">${segs.map(s=>`<div class="segctl-item ${s.id===active?'active':''}" data-action="goto:${s.id}:${typeKey}">${s.label}</div>`).join('')}</div>`;
+  const segs = [{id:'type',label:'Overview'},{id:'analyses',label:'Analyses'},{id:'rankings',label:'Rankings'},{id:'watchlist',label:'Watchlist'},{id:'framework',label:'Framework'}];
+  return `<div class="segctl">${segs.map(s=>`<div class="segctl-item ${s.id===active?'active':''}" data-action="${s.id==='watchlist'?`goto:typewatch:${typeKey}`:`goto:${s.id}:${typeKey}`}">${s.label}</div>`).join('')}</div>`;
 }
 function typeOverviewPage(typeKey){
   const t = typeInfo(typeKey);
@@ -954,7 +1029,7 @@ function analysesPage(typeKey){
 function analysesListOrEmpty(list, typeKey){
   const t = typeInfo(typeKey);
   if(!list.length) return emptyState('inbox','No '+t.plural.toLowerCase()+' match','Try clearing filters or tap the + button to start a new analysis.');
-  return list.map(i=>invCardRow(i,{})).join('');
+  return list.map(i=>invCardRow(i,{deletable:true})).join('');
 }
 
 /* ============================================================
@@ -1006,17 +1081,21 @@ function frameworkPage(typeKey){
 /* ============================================================
    WATCHLIST
 ============================================================ */
-function watchlistPage(tab){
-  const active = tab==='review'? STATE.investments.filter(i=>i.status==='Needs Review') :
-                 tab==='recent'? [...STATE.investments].filter(i=>i.watchlist).sort((a,b)=>b.updatedAt-a.updatedAt) :
-                 STATE.investments.filter(i=>i.watchlist);
+function watchlistPage(typeKey, tab){
+  const base = typeKey? invsOfType(typeKey) : STATE.investments;
+  const active = tab==='review'? base.filter(i=>i.status==='Needs Review') :
+                 tab==='recent'? [...base].filter(i=>i.watchlist).sort((a,b)=>b.updatedAt-a.updatedAt) :
+                 base.filter(i=>i.watchlist);
+  const t = typeKey? typeInfo(typeKey) : null;
+  const suffix = typeKey? ':'+typeKey : '';
   return `
+  ${t? typeSegCtl(typeKey,'watchlist') : ''}
   <div class="segctl">
-    <div class="segctl-item ${tab!=='review'&&tab!=='recent'?'active':''}" data-action="goto:watchlist:all">All</div>
-    <div class="segctl-item ${tab==='recent'?'active':''}" data-action="goto:watchlist:recent">Recent</div>
-    <div class="segctl-item ${tab==='review'?'active':''}" data-action="goto:watchlist:review">Needs Review</div>
+    <div class="segctl-item ${tab!=='review'&&tab!=='recent'?'active':''}" data-action="goto:watchlist:all${suffix}">All</div>
+    <div class="segctl-item ${tab==='recent'?'active':''}" data-action="goto:watchlist:recent${suffix}">Recent</div>
+    <div class="segctl-item ${tab==='review'?'active':''}" data-action="goto:watchlist:review${suffix}">Needs Review</div>
   </div>
-  <div class="card">${active.length? active.map(i=>invCardRow(i,{})).join('') : emptyState('star','Nothing here yet','Add investments to your watchlist from their workspace.')}</div>
+  <div class="card">${active.length? active.map(i=>invCardRow(i,{})).join('') : emptyState('star','Nothing here yet',t?'Add '+t.plural.toLowerCase()+' to your watchlist from their workspace.':'Add investments to your watchlist from their workspace.')}</div>
   `;
 }
 
@@ -1056,9 +1135,10 @@ function settingsPage(){
       <div style="font-size:13px;margin-bottom:3px"><b>${esc(gh.repo)}</b> <span class="muted">· ${esc(gh.branch)}</span></div>
       <div class="muted" style="font-size:11px;margin-bottom:12px">Last synced: ${gh.lastSync? fmtDateTime(gh.lastSync) : 'never'}</div>
       <div class="row-toggle"><div><div class="row-toggle-main">Auto-sync</div><div class="row-toggle-sub">Push a few seconds after each change</div></div><div class="theme-switch ${gh.autoSync?'on':''}" data-action="toggle-autosync"><div class="knob"></div></div></div>
-      <div style="display:flex;gap:8px;margin-top:12px">
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
         <div class="btn btn-primary btn-sm" style="flex:1" data-action="github-push">${icon('github')} Push Now</div>
-        <div class="btn btn-ghost btn-sm btn-danger" data-action="github-disconnect">Disconnect</div>
+        <div class="btn btn-ghost btn-sm" style="flex:1" data-action="github-pull">${icon('download')} Pull Latest</div>
+        <div class="btn btn-ghost btn-sm btn-danger" style="flex:1" data-action="github-disconnect">Disconnect</div>
       </div>
     ` : `
       <div class="form-field"><label>Repository (owner/repo)</label><input type="text" id="gh_repo" placeholder="e.g. yourname/keel-data"></div>
@@ -1100,11 +1180,13 @@ function workspacePage(id, tab){
   else if(tab==='history') body = wsHistory(inv,f,w);
 
   return `
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:10px">
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
     ${statusBadge(inv.status)}
     <select data-bind="status:${inv.id}" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:12px;padding:6px 9px;border-radius:20px">${STATUSES.map(s=>`<option value="${s}" ${inv.status===s?'selected':''}>${s}</option>`).join('')}</select>
-    <div class="btn btn-ghost btn-sm" data-action="toggle-watch:${inv.id}" style="margin-left:auto">${icon('star')} ${inv.watchlist?'Watching':'Watch'}</div>
-    <div class="appbar-btn" style="width:34px;height:34px;color:var(--negative)" data-action="delete-analysis:${inv.id}">${icon('trash')}</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+    <div class="btn btn-ghost btn-sm" data-action="toggle-watch:${inv.id}">${icon('star')} ${inv.watchlist?'Watching':'Watch'}</div>
+    <div class="btn btn-sm" style="margin-left:auto;background:var(--negative-soft);border-color:var(--negative);color:var(--negative)" data-action="delete-analysis:${inv.id}">${icon('trash')} Delete</div>
   </div>
   ${workspaceTabsHtml(inv, tab)}
   ${body}
@@ -1165,7 +1247,7 @@ function wsAnalysis(inv,f,comp){
 }
 function criterionRow(inv, cat, cr, isRisk){
   const a = (inv.analysis.categories[cat.id] && inv.analysis.categories[cat.id].criteria[cr.id]) || {};
-  const key = inv.id+'|'+cat.id+'|'+cr.id;
+  const key = inv.id+':'+cat.id+':'+cr.id;
   return `<div class="criterion">
     <div class="crit-name">${cr.name}</div>
     <div class="crit-block">
@@ -1274,11 +1356,13 @@ function wsHistory(inv,f,w){
   ${versions.length===0? emptyState('clock','No versions saved yet','Save a version to start tracking how your analysis evolves.') : `
   <div class="card">
   ${[...versions].reverse().map((v,idx)=>{
+    const origIdx = versions.length-1-idx;
     const prevIdx = versions.length-2-idx; const prev = prevIdx>=0? versions[prevIdx]:null;
     const delta = prev? v.overallScore-prev.overallScore : null;
-    return `<div class="inv-card"><div class="inv-avatar" style="background:var(--accent-soft);color:var(--accent);border:none">v${versions.length-idx}</div>
+    return `<div class="inv-card" data-action="view-version:${inv.id}:${origIdx}"><div class="inv-avatar" style="background:var(--accent-soft);color:var(--accent);border:none">v${versions.length-idx}</div>
       <div class="inv-main"><div class="inv-name">Score ${v.overallScore!=null?v.overallScore:'-'} ${delta!=null?`<span style="font-size:11px;font-weight:700;margin-left:5px;color:${delta>=0?'var(--positive)':'var(--negative)'}">${delta>=0?'+':''}${delta}</span>`:''}</div><div class="inv-sub">${v.note||'Saved version'}</div></div>
       <div class="inv-sub">${fmtDateTime(v.ts)}</div>
+      ${icon('chevron')}
     </div>`;
   }).join('')}
   </div>`}
@@ -1309,6 +1393,60 @@ function confirmDeleteSheetBody(id){
   <div style="display:flex;gap:8px">
     <div class="btn btn-ghost" style="flex:1" data-action="close-modal">Cancel</div>
     <div class="btn" style="flex:1;background:var(--negative);border-color:var(--negative);color:#fff" data-action="confirm-delete:${id}">Delete</div>
+  </div>
+  `;
+}
+
+function versionViewSheetBody(inv, idx){
+  if(!inv) return '';
+  const f = FRAMEWORKS[inv.type];
+  const v = inv.analysis.versions[idx];
+  if(!v) return '';
+  const snap = v.snapshot;
+  return `
+  <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px">${v.note||'Saved version'} · ${fmtDateTime(v.ts)} · Overall score at save time: <b class="num" style="color:var(--text)">${v.overallScore!=null?v.overallScore:'-'}</b></div>
+  ${snap? `
+  <div class="card" style="margin-bottom:14px">
+    ${f.categories.map(c=>{ const s = categoryScore({categories:snap.categories||{}}, c); return `<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--border-soft)"><span class="muted">${c.name}</span><span class="num" style="font-weight:700">${s!=null?score100(s):'-'}</span></div>`; }).join('')}
+  </div>
+  ${snap.thesis && snap.thesis.thesis? `<div class="card" style="margin-bottom:14px"><div style="font-weight:700;font-size:12.5px;margin-bottom:6px">Thesis at the time</div><div style="font-size:12.5px;color:var(--text2);white-space:pre-wrap">${esc(snap.thesis.thesis)}</div></div>` : ''}
+  <div class="caveat" style="margin-bottom:16px">${icon('info')} Restoring replaces this analysis's current scores, reasoning, valuation and thesis with this saved snapshot. This can't be undone (save a new version first if you want to keep your current state).</div>
+  <div style="display:flex;gap:8px;margin-bottom:10px">
+    <div class="btn btn-ghost" style="flex:1" data-action="close-modal">Close</div>
+    <div class="btn btn-primary" style="flex:1" data-action="restore-version:${inv.id}:${idx}">Restore</div>
+  </div>
+  <div class="btn btn-ghost btn-block" style="color:var(--negative)" data-action="delete-version:${inv.id}:${idx}">${icon('trash')} Delete This Version</div>
+  ` : `<div class="muted" style="font-size:12.5px;margin-bottom:14px">This version was saved before detailed snapshots were tracked, so only the overall score is available — nothing to restore.</div>
+  <div class="btn btn-ghost btn-block" style="margin-bottom:10px" data-action="close-modal">Close</div>
+  <div class="btn btn-ghost btn-block" style="color:var(--negative)" data-action="delete-version:${inv.id}:${idx}">${icon('trash')} Delete This Version</div>`}
+  `;
+}
+
+function confirmRestoreSheetBody(id, idx){
+  const inv = findInv(id); const v = inv && inv.analysis.versions[idx];
+  return `
+  <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:16px">This replaces the analysis's current scores, reasoning, valuation and thesis with the snapshot saved ${v?fmtDateTime(v.ts):'earlier'}. Your current state will be lost unless you saved it as its own version first. This can't be undone.</div>
+  <div style="display:flex;gap:8px">
+    <div class="btn btn-ghost" style="flex:1" data-action="close-modal">Cancel</div>
+    <div class="btn btn-primary" style="flex:1" data-action="restore-version-confirmed:${id}:${idx}">Restore</div>
+  </div>
+  `;
+}
+function confirmDeleteVersionSheetBody(id, idx){
+  return `
+  <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:16px">Permanently delete this saved version? This can't be undone.</div>
+  <div style="display:flex;gap:8px">
+    <div class="btn btn-ghost" style="flex:1" data-action="close-modal">Cancel</div>
+    <div class="btn" style="flex:1;background:var(--negative);border-color:var(--negative);color:#fff" data-action="delete-version-confirmed:${id}:${idx}">Delete</div>
+  </div>
+  `;
+}
+function confirmPullSheetBody(){
+  return `
+  <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:16px">This replaces your local data with whatever is currently saved in the GitHub repo. Anything you haven't pushed yet will be lost. Continue?</div>
+  <div style="display:flex;gap:8px">
+    <div class="btn btn-ghost" style="flex:1" data-action="close-modal">Cancel</div>
+    <div class="btn btn-primary" style="flex:1" data-action="github-pull-confirmed">Pull</div>
   </div>
   `;
 }
@@ -1433,7 +1571,7 @@ function handleBind(kind, value){
 function handleBlur(kind, value){
   const parts = kind.split(':');
   const tag = parts[0];
-  if(tag==='reason'){ const [,id,catId,crId]=parts; const inv=findInv(id); const c=ensureCriterion(inv,catId,crId); c.reasoning=value; touch(inv); return; }
+  if(tag==='reason'){ const [,id,catId,crId]=parts; const inv=findInv(id); if(!inv) return; const c=ensureCriterion(inv,catId,crId); c.reasoning=value; touch(inv); return; }
   if(tag==='val'){ const id=parts[1]; const key=parts.slice(2).join(':'); const inv=findInv(id); inv.analysis.valuation[key]=value; touch(inv); return; }
   if(tag==='dcf'){ const id=parts[1]; const key=parts[2]; const inv=findInv(id); if(!inv.analysis.dcf) inv.analysis.dcf={}; inv.analysis.dcf[key]=value; touch(inv); return; }
   if(tag==='field'){ const id=parts[1]; const key=parts[2]; const inv=findInv(id); inv.analysis[key]=value; touch(inv); return; }
@@ -1446,6 +1584,7 @@ function handleAction(action, e){
   const parts = action.split(':');
   const kind = parts[0];
 
+  if(kind==='tabgo'){ tabGo(parts[1]); return; }
   if(kind==='goto'){
     const sub = parts[1];
     if(sub==='dashboard'){ nav('dashboard'); return; }
@@ -1454,7 +1593,8 @@ function handleAction(action, e){
     if(sub==='analyses'){ nav('analyses', parts[2]); return; }
     if(sub==='rankings'){ nav('rankings', parts[2]); return; }
     if(sub==='framework'){ nav('framework', parts[2]); return; }
-    if(sub==='watchlist'){ nav('watchlist', null, null, parts[2]); return; }
+    if(sub==='watchlist'){ nav('watchlist', parts[3]||null, null, parts[2]); return; }
+    if(sub==='typewatch'){ nav('watchlist', parts[2], null, 'all'); return; }
     if(sub==='settings'){ nav('settings'); return; }
     if(sub==='open'){ const id=parts[2]; const tab=parts[3]||'summary'; const inv=findInv(id); if(inv) nav('workspace', inv.type, id, tab); return; }
     return;
@@ -1502,19 +1642,47 @@ function handleAction(action, e){
   }
   if(kind==='toggle-cat'){ const id=parts[1], catId=parts[2]; if(!STATE.ui.openCats[id]) STATE.ui.openCats[id]={}; STATE.ui.openCats[id][catId]=!STATE.ui.openCats[id][catId]; render(); return; }
 
-  if(kind==='set-score'){ const id=parts[1], catId=parts[2], crId=parts[3], v=parseInt(parts[4]); const inv=findInv(id); const c=ensureCriterion(inv,catId,crId); c.score = c.score===v? null : v; touch(inv); render(); return; }
-  if(kind==='set-conf'){ const id=parts[1], catId=parts[2], crId=parts[3], v=parseInt(parts[4]); const inv=findInv(id); const c=ensureCriterion(inv,catId,crId); c.confidence = c.confidence===v? null : v; touch(inv); render(); return; }
+  if(kind==='set-score'){ const id=parts[1], catId=parts[2], crId=parts[3], v=parseInt(parts[4]); const inv=findInv(id); if(!inv){ toast('Could not find that analysis'); return; } const c=ensureCriterion(inv,catId,crId); c.score = c.score===v? null : v; touch(inv); render(); return; }
+  if(kind==='set-conf'){ const id=parts[1], catId=parts[2], crId=parts[3], v=parseInt(parts[4]); const inv=findInv(id); if(!inv){ toast('Could not find that analysis'); return; } const c=ensureCriterion(inv,catId,crId); c.confidence = c.confidence===v? null : v; touch(inv); render(); return; }
 
   if(kind==='add-evidence'){ STATE.ui.modal={type:'evidence', key:parts.slice(1).join(':')}; render(); return; }
-  if(kind==='confirm-evidence'){ const key=parts.slice(1).join(':'); const val=document.getElementById('ev_input').value.trim(); if(val){ const [id,catId,crId]=key.split('|'); const inv=findInv(id); const c=ensureCriterion(inv,catId,crId); c.evidence.push(val); touch(inv); } STATE.ui.modal=null; render(); return; }
+  if(kind==='confirm-evidence'){ const key=parts.slice(1).join(':'); const val=document.getElementById('ev_input').value.trim(); if(val){ const [id,catId,crId]=key.split(':'); const inv=findInv(id); const c=ensureCriterion(inv,catId,crId); c.evidence.push(val); touch(inv); } STATE.ui.modal=null; render(); return; }
   if(kind==='rm-evidence'){ const id=parts[1], catId=parts[2], crId=parts[3], idx=parseInt(parts[4]); const inv=findInv(id); const c=ensureCriterion(inv,catId,crId); c.evidence.splice(idx,1); touch(inv); render(); return; }
 
   if(kind==='score-explain'){ STATE.ui.modal={type:'scoreExplain', id:parts[1]}; render(); return; }
   if(kind==='save-version'){
     const inv = findInv(parts[1]); const f=FRAMEWORKS[inv.type]; const w=currentFrameworkWeights(inv.type);
     const os = overallScore(inv.analysis,f,w);
-    inv.analysis.versions.push({ts:Date.now(), overallScore:os, note:'Manual snapshot'});
-    touch(inv); render(); return;
+    const snapshot = JSON.parse(JSON.stringify({
+      categories: inv.analysis.categories,
+      valuation: inv.analysis.valuation,
+      dcf: inv.analysis.dcf || null,
+      riskNotes: inv.analysis.riskNotes,
+      thesis: inv.analysis.thesis,
+    }));
+    inv.analysis.versions.push({ts:Date.now(), overallScore:os, note:'Manual snapshot', snapshot});
+    touch(inv); render(); toast('Version saved'); return;
+  }
+  if(kind==='view-version'){ STATE.ui.modal={type:'versionView', id:parts[1], idx:parseInt(parts[2])}; render(); return; }
+  if(kind==='restore-version'){ STATE.ui.modal={type:'confirmRestore', id:parts[1], idx:parseInt(parts[2])}; render(); return; }
+  if(kind==='restore-version-confirmed'){
+    const inv = findInv(parts[1]); const idx = parseInt(parts[2]); const v = inv && inv.analysis.versions[idx];
+    if(v && v.snapshot){
+      inv.analysis.categories = JSON.parse(JSON.stringify(v.snapshot.categories||{}));
+      inv.analysis.valuation = JSON.parse(JSON.stringify(v.snapshot.valuation||{}));
+      if(v.snapshot.dcf) inv.analysis.dcf = JSON.parse(JSON.stringify(v.snapshot.dcf));
+      inv.analysis.riskNotes = JSON.parse(JSON.stringify(v.snapshot.riskNotes||{keyRisks:'',lossScenarios:'',whatWouldChangeMind:''}));
+      inv.analysis.thesis = JSON.parse(JSON.stringify(v.snapshot.thesis||{}));
+      touch(inv);
+      toast('Version restored');
+    }
+    STATE.ui.modal=null; render(); return;
+  }
+  if(kind==='delete-version'){ STATE.ui.modal={type:'confirmDeleteVersion', id:parts[1], idx:parseInt(parts[2])}; render(); return; }
+  if(kind==='delete-version-confirmed'){
+    const inv = findInv(parts[1]); const idx = parseInt(parts[2]);
+    if(inv && inv.analysis.versions[idx]!=null){ inv.analysis.versions.splice(idx,1); touch(inv); toast('Version deleted'); }
+    STATE.ui.modal=null; render(); return;
   }
 
   if(kind==='reset-weights'){ delete STATE.frameworkOverrides[parts[1]]; render(); return; }
@@ -1558,6 +1726,8 @@ function handleAction(action, e){
   }
   if(kind==='github-disconnect'){ clearTimeout(autoSyncTimer); STATE.github = { connected:false, repo:'', branch:'main', token:'', lastSync:null, autoSync:true }; persist(); render(); toast('Disconnected'); return; }
   if(kind==='github-push'){ githubPush(); return; }
+  if(kind==='github-pull'){ STATE.ui.modal={type:'confirmPull'}; render(); return; }
+  if(kind==='github-pull-confirmed'){ STATE.ui.modal=null; githubPull(); return; }
   if(kind==='toggle-autosync'){ STATE.github.autoSync = !STATE.github.autoSync; if(STATE.github.autoSync) scheduleAutoSync(); else clearTimeout(autoSyncTimer); persist(); render(); return; }
 
   if(kind==='clear-demo' || kind==='clear-all'){

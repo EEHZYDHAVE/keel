@@ -325,6 +325,50 @@ textarea.reason::placeholder{color:var(--muted);}
 .update-banner .btn{padding:5px 12px;font-size:11.5px;min-height:auto;}
 .update-banner .dismiss{cursor:pointer;color:var(--text2);width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:6px;}
 .update-banner .dismiss:hover{background:var(--elevated);}
+
+/* ---------- mobile ---------- */
+.mobile-menu-btn{display:none;}
+.mobile-backdrop{display:none;}
+@media(max-width:820px){
+  .mobile-menu-btn{display:flex;flex:none;}
+  .sidebar{
+    position:fixed; z-index:60; left:0; top:0; height:100vh; width:250px;
+    transform:translateX(-100%); transition:transform .18s ease;
+  }
+  .sidebar.mobile-open{transform:translateX(0); box-shadow:16px 0 40px #00000066;}
+  .sidebar.collapsed{width:250px;}
+  .sidebar.collapsed .side-label,.sidebar.collapsed .side-group,.sidebar.collapsed .brand-text,.sidebar.collapsed .nav-badge{display:block;}
+  .sidebar.collapsed .nav-item{justify-content:flex-start;}
+  .side-foot .collapse-btn{display:none;}
+  .mobile-backdrop{display:block; position:fixed; inset:0; background:#00000080; z-index:55;}
+
+  .topbar{padding:0 12px; gap:9px;}
+  .search-wrap{max-width:none;}
+  .search input{font-size:13px;}
+  .save-indicator span:last-child{display:none;}
+  .topbar-right{gap:7px;}
+  .topbar-right .icon-btn:nth-child(3){display:none;}
+
+  .content{padding:14px 14px 52px;}
+  .page-head{flex-direction:column;align-items:stretch;gap:10px;}
+  .page-head>div:last-child{width:100%;}
+  .page-title{font-size:18px;}
+  .grid-4{grid-template-columns:repeat(2,1fr);}
+  .grid-3,.grid-2{grid-template-columns:1fr;}
+  .crit-row{flex-direction:column;gap:12px;}
+  .radial{width:94px;height:94px;flex:none;}
+  .radial-val{font-size:22px;}
+  .modal-overlay{padding:0;align-items:stretch;}
+  .modal{max-width:none;width:100%;min-height:100%;border-radius:0;border:none;}
+  .se-row{grid-template-columns:1.3fr .8fr .8fr 1fr;font-size:11px;gap:6px;}
+  .form-grid{grid-template-columns:1fr;}
+  .kpi-val{font-size:20px;}
+}
+@media(max-width:460px){
+  .grid-4{grid-template-columns:repeat(2,1fr);}
+  .page-title{font-size:16.5px;}
+  .card{padding:13px;}
+}
 </style>
 </head>
 <body>
@@ -361,6 +405,7 @@ const ICONS = {
   upload:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20V7m0 0l-4.5 4.5M12 7l4.5 4.5M4 19.5h16" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   clip:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21.4 11.3L12.7 20a4.5 4.5 0 1 1-6.4-6.4l8.4-8.4a3 3 0 1 1 4.2 4.2l-8.4 8.4a1.5 1.5 0 1 1-2.1-2.1l7.8-7.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2m3 0-.9 12.2A2 2 0 0 1 15.1 21H8.9a2 2 0 0 1-2-1.8L6 7" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 11v6M14 11v6" stroke-linecap="round"/></svg>',
+  menu:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 6.5h16M4 12h16M4 17.5h16" stroke-linecap="round"/></svg>',
 };
 function icon(name,cls){return `<span class="${cls||''}" style="display:inline-flex">${ICONS[name]||''}</span>`;}
 function backBtn(){ return STATE.ui.route.page!=='dashboard'? `<div class="back-btn" data-action="go-back">${icon('chevronL')} Back</div>` : ''; }
@@ -649,6 +694,7 @@ function initState(){
     STATE.ui.theme = STATE.ui.theme || 'dark';
     STATE.ui.avatarMenuOpen = !!STATE.ui.avatarMenuOpen;
     STATE.ui.searchOpen = !!STATE.ui.searchOpen;
+    STATE.ui.mobileNavOpen = !!STATE.ui.mobileNavOpen;
     if(STATE.ui.autoRefreshOnUpdate==null) STATE.ui.autoRefreshOnUpdate = false;
     STATE.ui.updateBannerDismissed = false;
     STATE.github = STATE.github || { connected:false, repo:'', branch:'main', token:'', lastSync:null, autoSync:true };
@@ -661,6 +707,7 @@ function initState(){
     ui: {
       route:{page:'dashboard', type:null, id:null, tab:'summary'},
       sidebarCollapsed:false,
+      mobileNavOpen:false,
       search:'',
       filters:{status:'all', q:''},
       rankProfile:{}, // typeKey -> profileId
@@ -714,13 +761,13 @@ function render(){
 
 function nav(page,type,id,tab){
   STATE.ui.route = {page, type:type||null, id:id||null, tab:tab||'summary'};
-  STATE.ui.avatarMenuOpen=false; STATE.ui.searchOpen=false;
+  STATE.ui.avatarMenuOpen=false; STATE.ui.searchOpen=false; STATE.ui.mobileNavOpen=false;
   render();
   window.scrollTo(0,0);
 }
 function parentRoute(route){
   if(route.page==='workspace') return {page:'analyses', type:route.type, id:null, tab:'summary'};
-  if((route.page==='analyses' || route.page==='rankings' || route.page==='framework') && route.type) return {page:'type', type:route.type, id:null, tab:'summary'};
+  if((route.page==='analyses' || route.page==='rankings' || route.page==='framework' || route.page==='watchlist') && route.type) return {page:'type', type:route.type, id:null, tab:'summary'};
   return {page:'dashboard', type:null, id:null, tab:'summary'};
 }
 function goBack(){
@@ -732,7 +779,8 @@ function goBack(){
 /* ---------- shell ---------- */
 function shellHtml(){
   return `
-  <div class="sidebar ${STATE.ui.sidebarCollapsed?'collapsed':''}">
+  ${STATE.ui.mobileNavOpen? `<div class="mobile-backdrop" data-action="toggle-mobile-nav"></div>` : ''}
+  <div class="sidebar ${STATE.ui.sidebarCollapsed?'collapsed':''} ${STATE.ui.mobileNavOpen?'mobile-open':''}">
     <div class="brand" data-action="nav-dashboard">
       <div class="brand-mark">${ICONS.logo}</div>
       <div class="brand-text"><div class="t1">Keel</div><div class="t2">Research · Evaluate · Decide</div></div>
@@ -757,6 +805,7 @@ function shellHtml(){
   <div class="main">
     ${updateAvailable && !STATE.ui.updateBannerDismissed ? updateBannerHtml() : ''}
     <div class="topbar">
+      <div class="mobile-menu-btn icon-btn" data-action="toggle-mobile-nav" aria-label="Open menu">${icon('menu')}</div>
       <div class="search-wrap">
         <div class="search">
           ${icon('search')}
@@ -765,7 +814,7 @@ function shellHtml(){
         <div id="search-results-container"></div>
       </div>
       <div class="topbar-right">
-        <div class="save-indicator"><span class="save-dot ${STATE.ui.savingFlash?'saving':''}"></span>${STATE.ui.savingFlash?'Saving…':'Saved'}</div>
+        <div class="save-indicator"><span class="save-dot ${STATE.ui.savingFlash?'saving':''}"></span><span>${STATE.ui.savingFlash?'Saving…':'Saved'}</span></div>
         <div class="icon-btn" data-action="toggle-theme" title="Toggle theme">${icon(STATE.ui.theme==='light'?'moon':'sun')}</div>
         <div class="icon-btn">${icon('bell')}</div>
         <div class="avatar-wrap">
@@ -785,8 +834,8 @@ function navItem(routeKey,label,iconName,badge){
   let active=false;
   if(routeKey==='dashboard') active = r.page==='dashboard';
   else if(routeKey.startsWith('type:')) active = r.page==='type' && r.type===routeKey.split(':')[1];
-  else if(routeKey==='watchlist:all') active = r.page==='watchlist' && r.tab!=='review';
-  else if(routeKey==='watchlist:review') active = r.page==='watchlist' && r.tab==='review';
+  else if(routeKey==='watchlist:all') active = r.page==='watchlist' && r.tab!=='review' && !r.type;
+  else if(routeKey==='watchlist:review') active = r.page==='watchlist' && r.tab==='review' && !r.type;
   else if(routeKey.startsWith('framework:')) active = r.page==='framework' && r.type===routeKey.split(':')[1];
   else if(routeKey==='settings') active = r.page==='settings';
   return `<div class="nav-item ${active?'active':''}" data-action="goto:${routeKey}">${icon(iconName)}<span class="side-label">${label}</span>${badge?`<span class="nav-badge">${badge}</span>`:''}</div>`;
@@ -807,7 +856,7 @@ function pageHtml(){
   if(r.page==='analyses') return analysesPage(r.type);
   if(r.page==='rankings') return rankingsPage(r.type);
   if(r.page==='workspace') return workspacePage(r.id, r.tab);
-  if(r.page==='watchlist') return watchlistPage(r.tab);
+  if(r.page==='watchlist') return watchlistPage(r.type, r.tab);
   if(r.page==='framework') return frameworkPage(r.type);
   if(r.page==='settings') return settingsPage();
   return dashboardPage();
@@ -1003,7 +1052,7 @@ function tabsRow(mode, typeKey, active){
     {id:'overview', label:'Overview', go:`goto:type:${typeKey}`},
     {id:'analyses', label:'Analyses', go:`goto:analyses:${typeKey}`},
     {id:'rankings', label:'Rankings', go:`goto:rankings:${typeKey}`},
-    {id:'watchlist', label:'Watchlist', go:`goto:watchlist-type:${typeKey}`},
+    {id:'watchlist', label:'Watchlist', go:`goto:watchlist:all:${typeKey}`},
     {id:'framework', label:'Framework', go:`goto:framework:${typeKey}`},
   ];
   return `<div class="tabs">${tabs.map(t=>`<div class="tab ${t.id===active?'active':''}" data-action="${t.go}">${t.label}</div>`).join('')}</div>`;
@@ -1106,17 +1155,22 @@ function rankingsTable(rows, f, profile){
 /* ============================================================
    WATCHLIST
 ============================================================ */
-function watchlistPage(tab){
-  const active = tab==='review'? STATE.investments.filter(i=>i.status==='Needs Review') :
-                 tab==='recent'? [...STATE.investments].filter(i=>i.watchlist).sort((a,b)=>b.updatedAt-a.updatedAt) :
-                 STATE.investments.filter(i=>i.watchlist);
+function watchlistPage(typeKey, tab){
+  const base = typeKey? invsOfType(typeKey) : STATE.investments;
+  const active = tab==='review'? base.filter(i=>i.status==='Needs Review') :
+                 tab==='recent'? [...base].filter(i=>i.watchlist).sort((a,b)=>b.updatedAt-a.updatedAt) :
+                 base.filter(i=>i.watchlist);
+  const t = typeKey? typeInfo(typeKey) : null;
+  const suffix = typeKey? ':'+typeKey : '';
   return `
   ${backBtn()}
-  <div class="page-head"><div><div class="page-title">Watchlist</div><div class="page-sub">Investments you're tracking without a full active analysis.</div></div></div>
+  ${t? `<div class="crumb"><b data-action="goto:type:${typeKey}" style="cursor:pointer">${t.label}</b> / Watchlist</div>` : ''}
+  <div class="page-head"><div><div class="page-title">${t? t.label+' Watchlist' : 'Watchlist'}</div><div class="page-sub">${t? 'Investments you\'re tracking in '+t.label.toLowerCase()+' without a full active analysis.' : 'Investments you\'re tracking without a full active analysis.'}</div></div></div>
+  ${t? tabsRow('type', typeKey, 'watchlist') : ''}
   <div class="tabs">
-    <div class="tab ${tab!=='review'&&tab!=='recent'?'active':''}" data-action="goto:watchlist:all">All Watchlist</div>
-    <div class="tab ${tab==='recent'?'active':''}" data-action="goto:watchlist:recent">Recently Updated</div>
-    <div class="tab ${tab==='review'?'active':''}" data-action="goto:watchlist:review">Needs Review</div>
+    <div class="tab ${tab!=='review'&&tab!=='recent'?'active':''}" data-action="goto:watchlist:all${suffix}">All Watchlist</div>
+    <div class="tab ${tab==='recent'?'active':''}" data-action="goto:watchlist:recent${suffix}">Recently Updated</div>
+    <div class="tab ${tab==='review'?'active':''}" data-action="goto:watchlist:review${suffix}">Needs Review</div>
   </div>
   <div class="card">
     ${active.length? watchlistTable(active) : emptyState('star','Nothing here yet','Add investments to your watchlist from their workspace.')}
@@ -1237,8 +1291,9 @@ function settingsPage(){
         <div><div class="row-main" style="font-size:12px">Auto-sync</div><div class="muted" style="font-size:11px">Push automatically a few seconds after each change.</div></div>
         <div class="theme-switch ${gh.autoSync?'on':''}" data-action="toggle-autosync"><div class="knob"></div></div>
       </div>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
         <div class="btn btn-primary btn-sm" data-action="github-push">${icon('github')} Push Now</div>
+        <div class="btn btn-ghost btn-sm" data-action="github-pull">${icon('download')} Pull Latest</div>
         <div class="btn btn-ghost btn-sm btn-danger" data-action="github-disconnect">Disconnect</div>
       </div>
     ` : `
@@ -1293,10 +1348,10 @@ function workspacePage(id, tab){
         <div class="page-sub">${esc(inv.identifier)}${inv.sector?' · '+esc(inv.sector):''}${inv.country?' · '+esc(inv.country):''}</div>
       </div>
     </div>
-    <div style="display:flex;align-items:center;gap:8px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <div class="btn btn-ghost btn-sm" data-action="toggle-watch:${inv.id}">${icon('star')} ${inv.watchlist?'On Watchlist':'Add to Watchlist'}</div>
       <select class="select-native" data-bind="status:${inv.id}">${STATUSES.map(s=>`<option value="${s}" ${inv.status===s?'selected':''}>${s}</option>`).join('')}</select>
-      <div class="icon-btn" style="color:var(--negative)" data-action="delete-analysis:${inv.id}" title="Delete analysis">${icon('trash')}</div>
+      <div class="btn btn-sm" style="background:var(--negative-soft);border-color:var(--negative);color:var(--negative)" data-action="delete-analysis:${inv.id}" title="Delete analysis">${icon('trash')} Delete</div>
     </div>
   </div>
   <div class="tabs">${tabs.map(tb=>`<div class="tab ${tb===tab?'active':''}" data-action="goto:open:${inv.id}:${tb}">${tabLabels[tb]}</div>`).join('')}</div>
@@ -1381,7 +1436,7 @@ function wsAnalysis(inv,f,comp){
 }
 function criterionRow(inv, cat, cr, isRisk){
   const a = (inv.analysis.categories[cat.id] && inv.analysis.categories[cat.id].criteria[cr.id]) || {};
-  const key = inv.id+'|'+cat.id+'|'+cr.id;
+  const key = inv.id+':'+cat.id+':'+cr.id;
   return `<div class="criterion">
     <div class="crit-name">${cr.name}</div>
     <div class="crit-row">
@@ -1515,12 +1570,14 @@ function wsHistory(inv,f,w){
   ${versions.length===0? emptyState('clock','No versions saved yet','Save a version to start tracking how your analysis evolves.') : `
   <div class="card">
   ${[...versions].reverse().map((v,idx)=>{
+    const origIdx = versions.length-1-idx;
     const prevIdx = versions.length-2-idx; const prev = prevIdx>=0? versions[prevIdx]:null;
     const delta = prev? v.overallScore-prev.overallScore : null;
-    return `<div class="list-row">
+    return `<div class="list-row" style="cursor:pointer" data-action="view-version:${inv.id}:${origIdx}">
       <div class="list-avatar" style="background:var(--accent-soft);color:var(--accent);border:none">v${versions.length-idx}</div>
       <div class="list-main"><div class="list-title">Score ${v.overallScore!=null?v.overallScore:'-'} ${delta!=null?`<span style="font-size:11px;font-weight:600;margin-left:6px" class="${delta>=0?'up':'down'}">${delta>=0?'+':''}${delta}</span>`:''}</div><div class="list-sub">${v.note||'Saved version'}</div></div>
       <div class="list-time">${fmtDateTime(v.ts)}</div>
+      ${icon('chevron')}
     </div>`;
   }).join('')}
   </div>`}
@@ -1588,7 +1645,49 @@ function modalHtml(){
     <div class="form-field" style="margin-bottom:14px"><label>Source title or URL</label><input type="text" id="ev_input" placeholder="e.g. FY2026 Annual Report"></div>
     <div class="modal-foot"><div class="btn btn-ghost" data-action="close-modal">Cancel</div><div class="btn btn-primary" data-action="confirm-evidence:${m.key}">Add</div></div>
   </div></div>`;
+  if(m.type==='versionView') return versionViewHtml(findInv(m.id), m.idx);
+  if(m.type==='confirmRestore'){
+    const inv = findInv(m.id); const v = inv && inv.analysis.versions[m.idx];
+    return `<div class="modal-overlay" data-action="overlay-close"><div class="modal">
+      <div class="modal-head"><div class="modal-title">Restore this version?</div><div class="modal-close" data-action="close-modal">${icon('x')}</div></div>
+      <div style="font-size:12.5px;color:var(--text2);line-height:1.6;margin-bottom:6px">This replaces the analysis's current scores, reasoning, valuation and thesis with the snapshot saved ${v?fmtDateTime(v.ts):'earlier'}. Your current state will be lost unless you saved it as its own version first. This can't be undone.</div>
+      <div class="modal-foot"><div class="btn btn-ghost" data-action="close-modal">Cancel</div><div class="btn btn-primary" data-action="restore-version-confirmed:${m.id}:${m.idx}">Restore</div></div>
+    </div></div>`;
+  }
+  if(m.type==='confirmDeleteVersion'){
+    return `<div class="modal-overlay" data-action="overlay-close"><div class="modal">
+      <div class="modal-head"><div class="modal-title">Delete this version?</div><div class="modal-close" data-action="close-modal">${icon('x')}</div></div>
+      <div style="font-size:12.5px;color:var(--text2);line-height:1.6;margin-bottom:6px">Permanently delete this saved version? This can't be undone.</div>
+      <div class="modal-foot"><div class="btn btn-ghost" data-action="close-modal">Cancel</div><div class="btn btn-primary" style="background:var(--negative);border-color:var(--negative);color:#fff" data-action="delete-version-confirmed:${m.id}:${m.idx}">Delete</div></div>
+    </div></div>`;
+  }
+  if(m.type==='confirmPull'){
+    return `<div class="modal-overlay" data-action="overlay-close"><div class="modal">
+      <div class="modal-head"><div class="modal-title">Pull from GitHub?</div><div class="modal-close" data-action="close-modal">${icon('x')}</div></div>
+      <div style="font-size:12.5px;color:var(--text2);line-height:1.6;margin-bottom:6px">This replaces your local data with whatever is currently saved in the GitHub repo. Anything you haven't pushed yet will be lost. Continue?</div>
+      <div class="modal-foot"><div class="btn btn-ghost" data-action="close-modal">Cancel</div><div class="btn btn-primary" data-action="github-pull-confirmed">Pull</div></div>
+    </div></div>`;
+  }
   return '';
+}
+function versionViewHtml(inv, idx){
+  if(!inv) return '';
+  const f = FRAMEWORKS[inv.type];
+  const v = inv.analysis.versions[idx];
+  if(!v) return '';
+  const snap = v.snapshot;
+  return `<div class="modal-overlay" data-action="overlay-close"><div class="modal" style="max-width:520px">
+    <div class="modal-head"><div class="modal-title">Version · ${fmtDateTime(v.ts)}</div><div class="modal-close" data-action="close-modal">${icon('x')}</div></div>
+    <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px">${v.note||'Saved version'} · Overall score at save time: <b class="num">${v.overallScore!=null?v.overallScore:'-'}</b></div>
+    ${snap? `
+    <div class="card" style="margin-bottom:12px">
+      ${f.categories.map(c=>{ const s = categoryScore({categories:snap.categories||{}}, c); return `<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0"><span class="muted">${c.name}</span><span class="num">${s!=null?score100(s):'-'}</span></div>`; }).join('')}
+    </div>
+    ${snap.thesis && snap.thesis.thesis? `<div class="card" style="margin-bottom:12px"><div class="card-title" style="margin-bottom:6px">Thesis at the time</div><div style="font-size:12px;color:var(--text2);white-space:pre-wrap">${esc(snap.thesis.thesis)}</div></div>` : ''}
+    <div class="caveat" style="margin-bottom:0">${icon('info')} Restoring replaces the analysis's current scores, reasoning, valuation and thesis with this saved snapshot. This can't be undone (save a new version first if you want to keep your current state).</div>
+    ` : `<div class="muted" style="font-size:12px">This version was saved before detailed snapshots were tracked, so only the overall score is available — nothing to restore.</div>`}
+    <div class="modal-foot"><div class="btn btn-ghost" data-action="close-modal">Close</div>${snap? `<div class="btn btn-ghost" style="color:var(--negative)" data-action="delete-version:${inv.id}:${idx}">${icon('trash')} Delete</div><div class="btn btn-primary" data-action="restore-version:${inv.id}:${idx}">Restore this version</div>`:`<div class="btn btn-ghost" style="color:var(--negative)" data-action="delete-version:${inv.id}:${idx}">${icon('trash')} Delete</div>`}</div>
+  </div></div>`;
 }
 
 /* ============================================================
@@ -1698,7 +1797,7 @@ function handleBind(kind, value){
 function handleBlur(kind, value){
   const parts = kind.split(':');
   const tag = parts[0];
-  if(tag==='reason'){ const [,id,catId,crId]=parts; const inv=findInv(id); const c=ensureCriterion(inv,catId,crId); c.reasoning=value; touch(inv); flashSave(); return; }
+  if(tag==='reason'){ const [,id,catId,crId]=parts; const inv=findInv(id); if(!inv) return; const c=ensureCriterion(inv,catId,crId); c.reasoning=value; touch(inv); flashSave(); return; }
   if(tag==='val'){ const id=parts[1]; const key=parts.slice(2).join(':'); const inv=findInv(id); inv.analysis.valuation[key]=value; touch(inv); flashSave(); return; }
   if(tag==='dcf'){ const id=parts[1]; const key=parts[2]; const inv=findInv(id); if(!inv.analysis.dcf) inv.analysis.dcf={}; inv.analysis.dcf[key]=value; touch(inv); flashSave(); return; }
   if(tag==='field'){ const id=parts[1]; const key=parts[2]; const inv=findInv(id); inv.analysis[key]=value; touch(inv); flashSave(); return; }
@@ -1718,14 +1817,15 @@ function handleAction(action, e){
     if(sub==='analyses'){ nav('analyses', parts[2]); return; }
     if(sub==='rankings'){ nav('rankings', parts[2]); return; }
     if(sub==='framework'){ nav('framework', parts[2]); return; }
-    if(sub==='watchlist-type'){ nav('type', parts[2]); return; } // fallback: type watchlist tab not separately modeled
-    if(sub==='watchlist'){ nav('watchlist', null, null, parts[2]); return; }
+    if(sub==='watchlist-type'){ nav('watchlist', parts[2], null, 'all'); return; }
+    if(sub==='watchlist'){ nav('watchlist', parts[3]||null, null, parts[2]); return; }
     if(sub==='settings'){ nav('settings'); return; }
     if(sub==='open'){ const id=parts[2]; const tab=parts[3]||'summary'; nav('workspace', findInv(id).type, id, tab); return; }
     return;
   }
   if(action==='nav-dashboard'){ nav('dashboard'); return; }
   if(kind==='toggle-sidebar'){ STATE.ui.sidebarCollapsed = !STATE.ui.sidebarCollapsed; render(); return; }
+  if(kind==='toggle-mobile-nav'){ STATE.ui.mobileNavOpen = !STATE.ui.mobileNavOpen; render(); return; }
   if(kind==='toggle-theme'){ STATE.ui.theme = STATE.ui.theme==='light'?'dark':'light'; persist(); render(); return; }
   if(kind==='apply-update'){ applyUpdate(); return; }
   if(kind==='dismiss-update-banner'){ STATE.ui.updateBannerDismissed = true; render(); return; }
@@ -1779,11 +1879,11 @@ function handleAction(action, e){
   }
   if(kind==='toggle-cat'){ const id=parts[1], catId=parts[2]; if(!STATE.ui.openCats[id]) STATE.ui.openCats[id]={}; STATE.ui.openCats[id][catId]=!STATE.ui.openCats[id][catId]; render(); return; }
 
-  if(kind==='set-score'){ const id=parts[1], catId=parts[2], crId=parts[3], v=parseInt(parts[4]); const inv=findInv(id); const c=ensureCriterion(inv,catId,crId); c.score = c.score===v? null : v; touch(inv); flashSave(); return; }
-  if(kind==='set-conf'){ const id=parts[1], catId=parts[2], crId=parts[3], v=parseInt(parts[4]); const inv=findInv(id); const c=ensureCriterion(inv,catId,crId); c.confidence = c.confidence===v? null : v; touch(inv); flashSave(); return; }
+  if(kind==='set-score'){ const id=parts[1], catId=parts[2], crId=parts[3], v=parseInt(parts[4]); const inv=findInv(id); if(!inv){ toast('Could not find that analysis'); return; } const c=ensureCriterion(inv,catId,crId); c.score = c.score===v? null : v; touch(inv); flashSave(); return; }
+  if(kind==='set-conf'){ const id=parts[1], catId=parts[2], crId=parts[3], v=parseInt(parts[4]); const inv=findInv(id); if(!inv){ toast('Could not find that analysis'); return; } const c=ensureCriterion(inv,catId,crId); c.confidence = c.confidence===v? null : v; touch(inv); flashSave(); return; }
 
   if(kind==='add-evidence'){ STATE.ui.modal={type:'evidence', key:parts.slice(1).join(':')}; render(); return; }
-  if(kind==='confirm-evidence'){ const key=parts.slice(1).join(':'); const val=document.getElementById('ev_input').value.trim(); if(val){ const [id,catId,crId]=key.split('|'); const inv=findInv(id); const c=ensureCriterion(inv,catId,crId); c.evidence.push(val); touch(inv); } STATE.ui.modal=null; flashSave(); return; }
+  if(kind==='confirm-evidence'){ const key=parts.slice(1).join(':'); const val=document.getElementById('ev_input').value.trim(); if(val){ const [id,catId,crId]=key.split(':'); const inv=findInv(id); const c=ensureCriterion(inv,catId,crId); c.evidence.push(val); touch(inv); } STATE.ui.modal=null; flashSave(); return; }
   if(kind==='rm-evidence'){ const key=parts[1]+':'+parts[2]+':'+parts[3]; const idx=parseInt(parts[4]); const [id,catId,crId]=(parts[1]+'|'+parts[2]+'|'+parts[3]).split('|'); const inv=findInv(id); const c=ensureCriterion(inv,catId,crId); c.evidence.splice(idx,1); touch(inv); flashSave(); return; }
 
   if(kind==='score-explain'){ STATE.ui.modal={type:'scoreExplain', id:parts[1]}; render(); return; }
@@ -1791,8 +1891,36 @@ function handleAction(action, e){
   if(kind==='save-version'){
     const inv = findInv(parts[1]); const f=FRAMEWORKS[inv.type]; const w=currentFrameworkWeights(inv.type);
     const os = overallScore(inv.analysis,f,w);
-    inv.analysis.versions.push({ts:Date.now(), overallScore:os, note:'Manual snapshot'});
-    touch(inv); flashSave(); return;
+    const snapshot = JSON.parse(JSON.stringify({
+      categories: inv.analysis.categories,
+      valuation: inv.analysis.valuation,
+      dcf: inv.analysis.dcf || null,
+      riskNotes: inv.analysis.riskNotes,
+      thesis: inv.analysis.thesis,
+    }));
+    inv.analysis.versions.push({ts:Date.now(), overallScore:os, note:'Manual snapshot', snapshot});
+    touch(inv); flashSave(); toast('Version saved'); return;
+  }
+  if(kind==='view-version'){ STATE.ui.modal={type:'versionView', id:parts[1], idx:parseInt(parts[2])}; render(); return; }
+  if(kind==='restore-version'){ STATE.ui.modal={type:'confirmRestore', id:parts[1], idx:parseInt(parts[2])}; render(); return; }
+  if(kind==='restore-version-confirmed'){
+    const inv = findInv(parts[1]); const idx = parseInt(parts[2]); const v = inv && inv.analysis.versions[idx];
+    if(v && v.snapshot){
+      inv.analysis.categories = JSON.parse(JSON.stringify(v.snapshot.categories||{}));
+      inv.analysis.valuation = JSON.parse(JSON.stringify(v.snapshot.valuation||{}));
+      if(v.snapshot.dcf) inv.analysis.dcf = JSON.parse(JSON.stringify(v.snapshot.dcf));
+      inv.analysis.riskNotes = JSON.parse(JSON.stringify(v.snapshot.riskNotes||{keyRisks:'',lossScenarios:'',whatWouldChangeMind:''}));
+      inv.analysis.thesis = JSON.parse(JSON.stringify(v.snapshot.thesis||{}));
+      touch(inv);
+      toast('Version restored');
+    }
+    STATE.ui.modal=null; flashSave(); return;
+  }
+  if(kind==='delete-version'){ STATE.ui.modal={type:'confirmDeleteVersion', id:parts[1], idx:parseInt(parts[2])}; render(); return; }
+  if(kind==='delete-version-confirmed'){
+    const inv = findInv(parts[1]); const idx = parseInt(parts[2]);
+    if(inv && inv.analysis.versions[idx]!=null){ inv.analysis.versions.splice(idx,1); touch(inv); toast('Version deleted'); }
+    STATE.ui.modal=null; flashSave(); return;
   }
 
   if(kind==='reset-weights'){ delete STATE.frameworkOverrides[parts[1]]; render(); return; }
@@ -1822,6 +1950,8 @@ function handleAction(action, e){
   }
   if(kind==='github-disconnect'){ clearTimeout(autoSyncTimer); STATE.github = { connected:false, repo:'', branch:'main', token:'', lastSync:null, autoSync:true }; persist(); render(); toast('Disconnected'); return; }
   if(kind==='github-push'){ githubPush(); return; }
+  if(kind==='github-pull'){ STATE.ui.modal={type:'confirmPull'}; render(); return; }
+  if(kind==='github-pull-confirmed'){ STATE.ui.modal=null; githubPull(); return; }
   if(kind==='toggle-autosync'){ STATE.github.autoSync = !STATE.github.autoSync; if(STATE.github.autoSync) scheduleAutoSync(); else clearTimeout(autoSyncTimer); persist(); render(); return; }
 
   if(kind==='clear-demo' || kind==='clear-all'){
@@ -1867,6 +1997,34 @@ async function githubPush(opts){
       toast('Push failed. This only works once the file is downloaded and opened outside Claude\'s preview. '+(err&&err.message?err.message:''));
       ghNoticeShown = true;
     }
+  }
+}
+
+async function githubPull(opts){
+  opts = opts || {};
+  const gh = STATE.github;
+  if(!gh.connected){ if(!opts.silent) toast('Connect GitHub first'); return; }
+  const [owner, repoName] = (gh.repo||'').split('/');
+  if(!owner || !repoName){ if(!opts.silent) toast('Repo must be in the form owner/repo'); return; }
+  const path = 'keel-data.json';
+  const apiBase = `https://api.github.com/repos/${owner}/${repoName}/contents/${path}`;
+  if(!opts.silent) toast('Pulling from GitHub…');
+  try{
+    const res = await fetch(apiBase+`?ref=${encodeURIComponent(gh.branch)}`, { headers:{ 'Authorization':'Bearer '+gh.token, 'Accept':'application/vnd.github+json' } });
+    if(res.status===404){ toast('No keel-data.json found yet in that repo/branch — push first.'); return; }
+    if(!res.ok){ throw new Error('GitHub responded '+res.status); }
+    const j = await res.json();
+    const decoded = decodeURIComponent(escape(atob((j.content||'').replace(/\n/g,''))));
+    const parsed = JSON.parse(decoded);
+    if(!parsed || !Array.isArray(parsed.investments)) throw new Error('Unexpected file contents');
+    STATE.investments = parsed.investments;
+    STATE.frameworkOverrides = parsed.frameworkOverrides || {};
+    STATE.ui.isDemo = false;
+    STATE.github.lastSync = Date.now();
+    persist(); render();
+    if(!opts.silent) toast('Pulled latest data from GitHub');
+  }catch(err){
+    toast('Pull failed. This only works once the file is downloaded and opened outside Claude\'s preview. '+(err&&err.message?err.message:''));
   }
 }
 
