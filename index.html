@@ -604,7 +604,7 @@ function initials(name){ return (name||'?').split(/\s+/).slice(0,2).map(w=>w[0])
 ============================================================ */
 let STATE = null;
 const LS_KEY = 'keel_invresearch_v1';
-const APP_VERSION = 'v5'; // keep in sync with CACHE_VERSION suffix in service-worker.js
+const APP_VERSION = 'v6'; // keep in sync with CACHE_VERSION suffix in service-worker.js
 const LS_KEY_LEGACY = 'ledger_invresearch_v1';
 
 function newAnalysis(){ return { categories:{}, valuation:{}, riskNotes:{keyRisks:'',lossScenarios:'',whatWouldChangeMind:''}, thesis:{}, versions:[] }; }
@@ -957,6 +957,7 @@ function typeOverviewPage(typeKey){
   const recentList = [...list].sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,4);
 
   return `
+  ${backBtn()}
   <div class="page-head">
     <div><div class="page-title">${t.label}</div><div class="page-sub">${overviewCopy(typeKey)}</div></div>
     <div class="head-meta"><span class="lbl">Last updated</span>${recent?fmtDateTime(recent.updatedAt):'-'}</div>
@@ -1167,7 +1168,6 @@ function watchlistPage(typeKey, tab){
   const suffix = typeKey? ':'+typeKey : '';
   return `
   ${backBtn()}
-  ${t? `<div class="crumb"><b data-action="goto:type:${typeKey}" style="cursor:pointer">${t.label}</b> / Watchlist</div>` : ''}
   <div class="page-head"><div><div class="page-title">${t? t.label+' Watchlist' : 'Watchlist'}</div><div class="page-sub">${t? 'Investments you\'re tracking in '+t.label.toLowerCase()+' without a full active analysis.' : 'Investments you\'re tracking without a full active analysis.'}</div></div></div>
   ${t? tabsRow('type', typeKey, 'watchlist') : ''}
   <div class="tabs">
@@ -1203,6 +1203,7 @@ function frameworkPage(typeKey){
     <div><div class="page-title">${f.label}</div><div class="page-sub">Framework version 1 · used by every ${t.plural.toLowerCase()} analysis unless a scoring profile is applied.</div></div>
     <div class="btn btn-ghost btn-sm" data-action="reset-weights:${typeKey}">Reset to default weights</div>
   </div>
+  ${tabsRow('type', typeKey, 'framework')}
   <div class="callout">${icon('info')} Editing weights changes how <b>new</b> composite scores are calculated. Existing analyses keep the reasoning, evidence and criterion scores you've already entered. Only the weighting of the roll-up changes. A future version will pin each analysis to a specific framework version.</div>
   <div class="two-col">
     <div class="card">

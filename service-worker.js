@@ -16,7 +16,7 @@
   turned that on in Settings) instead of silently going stale until a hard
   refresh.
 */
-const CACHE_VERSION = 'keel-cache-v5';
+const CACHE_VERSION = 'keel-cache-v6';
 
 const APP_SHELL = [
   './',
