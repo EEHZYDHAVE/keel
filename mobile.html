@@ -45,7 +45,7 @@
   --page-bg:#DCE0E8;
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-html,body{height:100%; overflow:hidden;}
+html,body{height:100%;}
 body{
   margin:0; background:var(--bg); color:var(--text); font-family:var(--font);
   font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased;
@@ -57,13 +57,19 @@ button{font-family:inherit;}
 input,textarea,select{font-family:inherit;}
 .num{font-variant-numeric:tabular-nums;}
 
-/* #app is capped to a phone-width column and centered; the transform gives it its
-   own containing block so position:fixed children (tabbar, fab, sheets) stay pinned
-   to THIS frame instead of the full browser window on wider screens. */
-#app{height:100vh; height:100dvh; max-width:520px; margin:0 auto; position:relative; transform:translateZ(0); background:var(--bg); overflow-y:auto; -webkit-overflow-scrolling:touch; display:flex; flex-direction:column;}
+/* #app is a plain, normal-flow container — the page itself scrolls, exactly like any
+   ordinary website. .tabbar and .fab below are fixed straight to the real browser
+   viewport (the default, always-reliable behavior on phones), not to this box. */
+#app{min-height:100vh; max-width:520px; margin:0 auto; position:relative; background:var(--bg); display:flex; flex-direction:column;}
 @media(min-width:560px){
   html,body{background:var(--page-bg);}
-  #app{box-shadow:0 0 0 1px var(--border-soft), 0 40px 90px #00000060;}
+  #app{box-shadow:0 0 0 1px var(--border-soft), 0 40px 90px #00000060; min-height:100vh;}
+  /* Cosmetic only, desktop-preview width and up: re-center the fixed bottom bar, FAB and
+     sheet overlay to match the phone-width column above, instead of spanning the full
+     browser window. Never applies at actual phone widths, so it can't affect real usage. */
+  .tabbar{left:50%; right:auto; width:520px; transform:translateX(-50%);}
+  .fab{right:calc(50% - 260px + 16px);}
+  .sheet-overlay{left:50%; right:auto; width:520px; transform:translateX(-50%);}
 }
 
 /* ---------- top app bar ---------- */
@@ -480,7 +486,7 @@ function initials(name){ return (name||'?').split(/\s+/).slice(0,2).map(w=>w[0])
 let STATE = null;
 const LS_KEY = 'keel_invresearch_v1';
 const LS_KEY_LEGACY = 'ledger_invresearch_v1';
-const APP_VERSION = 'v4'; // keep in sync with CACHE_VERSION suffix in service-worker.js
+const APP_VERSION = 'v5'; // keep in sync with CACHE_VERSION suffix in service-worker.js
 
 function newAnalysis(){ return { categories:{}, valuation:{}, riskNotes:{keyRisks:'',lossScenarios:'',whatWouldChangeMind:''}, thesis:{}, versions:[] }; }
 
