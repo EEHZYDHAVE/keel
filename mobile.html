@@ -45,7 +45,7 @@
   --page-bg:#DCE0E8;
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-html,body{height:100%;}
+html,body{height:100%; overflow:hidden;}
 body{
   margin:0; background:var(--bg); color:var(--text); font-family:var(--font);
   font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased;
@@ -60,7 +60,7 @@ input,textarea,select{font-family:inherit;}
 /* #app is capped to a phone-width column and centered; the transform gives it its
    own containing block so position:fixed children (tabbar, fab, sheets) stay pinned
    to THIS frame instead of the full browser window on wider screens. */
-#app{height:100vh; max-width:520px; margin:0 auto; position:relative; transform:translateZ(0); background:var(--bg); overflow-y:auto; -webkit-overflow-scrolling:touch; display:flex; flex-direction:column;}
+#app{height:100vh; height:100dvh; max-width:520px; margin:0 auto; position:relative; transform:translateZ(0); background:var(--bg); overflow-y:auto; -webkit-overflow-scrolling:touch; display:flex; flex-direction:column;}
 @media(min-width:560px){
   html,body{background:var(--page-bg);}
   #app{box-shadow:0 0 0 1px var(--border-soft), 0 40px 90px #00000060;}
@@ -480,7 +480,7 @@ function initials(name){ return (name||'?').split(/\s+/).slice(0,2).map(w=>w[0])
 let STATE = null;
 const LS_KEY = 'keel_invresearch_v1';
 const LS_KEY_LEGACY = 'ledger_invresearch_v1';
-const APP_VERSION = 'v3'; // keep in sync with CACHE_VERSION suffix in service-worker.js
+const APP_VERSION = 'v4'; // keep in sync with CACHE_VERSION suffix in service-worker.js
 
 function newAnalysis(){ return { categories:{}, valuation:{}, riskNotes:{keyRisks:'',lossScenarios:'',whatWouldChangeMind:''}, thesis:{}, versions:[] }; }
 
