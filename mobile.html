@@ -486,7 +486,7 @@ function initials(name){ return (name||'?').split(/\s+/).slice(0,2).map(w=>w[0])
 let STATE = null;
 const LS_KEY = 'keel_invresearch_v1';
 const LS_KEY_LEGACY = 'ledger_invresearch_v1';
-const APP_VERSION = 'v6'; // keep in sync with CACHE_VERSION suffix in service-worker.js
+const APP_VERSION = 'v7'; // keep in sync with CACHE_VERSION suffix in service-worker.js
 
 function newAnalysis(){ return { categories:{}, valuation:{}, riskNotes:{keyRisks:'',lossScenarios:'',whatWouldChangeMind:''}, thesis:{}, versions:[] }; }
 
@@ -580,6 +580,13 @@ function initState(){
     STATE.ui.tabMemory = STATE.ui.tabMemory || {};
     if(STATE.ui.autoRefreshOnUpdate==null) STATE.ui.autoRefreshOnUpdate = false;
     STATE.ui.updateBannerDismissed = false;
+    // Transient, session-only UI state (a toast bubble, an open modal, the "Saving…" flash)
+    // must never survive a reload — if the page closed mid-flight while one was showing,
+    // it would otherwise get baked into the saved snapshot and reappear stuck forever,
+    // since whatever timer was going to clear it doesn't survive the reload either.
+    STATE.ui.toast = null;
+    STATE.ui.modal = null;
+    STATE.ui.savingFlash = false;
     STATE.github = STATE.github || { connected:false, repo:'', branch:'main', token:'', lastSync:null, autoSync:true, lastError:null };
     if(STATE.github.lastError===undefined) STATE.github.lastError=null;
     if(STATE.github.autoSync==null) STATE.github.autoSync = true;

@@ -76,7 +76,8 @@ input,textarea,select{font-family:inherit;}
 .brand-mark svg{width:14px;height:14px;}
 .brand-text .t1{font-weight:700;font-size:14.5px;letter-spacing:-.01em;}
 .brand-text .t2{font-size:10.5px;color:var(--muted);}
-.back-btn{display:inline-flex;align-items:center;gap:6px;color:#5B9FD8;background:#5B9FD81F;font-size:12px;font-weight:600;cursor:pointer;padding:5px 10px 5px 6px;border-radius:20px;margin-bottom:10px;}
+.back-btn{width:30px;height:30px;display:flex;align-items:center;justify-content:center;background:#5AC8FA;color:#04293F;cursor:pointer;border-radius:50%;margin-bottom:10px;flex:none;}
+.back-btn:hover{filter:brightness(1.06);}
 .back-btn:hover{filter:brightness(1.12);}
 .back-btn:hover{background:var(--elevated);color:var(--text);}
 .back-btn svg{width:15px;height:15px;}
@@ -410,7 +411,7 @@ const ICONS = {
   menu:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 6.5h16M4 12h16M4 17.5h16" stroke-linecap="round"/></svg>',
 };
 function icon(name,cls){return `<span class="${cls||''}" style="display:inline-flex">${ICONS[name]||''}</span>`;}
-function backBtn(){ return STATE.ui.route.page!=='dashboard'? `<div class="back-btn" data-action="go-back">${icon('chevronL')} Back</div>` : ''; }
+function backBtn(){ return STATE.ui.route.page!=='dashboard'? `<div class="back-btn" data-action="go-back" title="Back">${icon('chevronL')}</div>` : ''; }
 function updateBannerHtml(){
   return `<div class="update-banner">
     <span>${icon('info')} <b>A new version of Keel is available.</b></span>
@@ -604,7 +605,7 @@ function initials(name){ return (name||'?').split(/\s+/).slice(0,2).map(w=>w[0])
 ============================================================ */
 let STATE = null;
 const LS_KEY = 'keel_invresearch_v1';
-const APP_VERSION = 'v6'; // keep in sync with CACHE_VERSION suffix in service-worker.js
+const APP_VERSION = 'v7'; // keep in sync with CACHE_VERSION suffix in service-worker.js
 const LS_KEY_LEGACY = 'ledger_invresearch_v1';
 
 function newAnalysis(){ return { categories:{}, valuation:{}, riskNotes:{keyRisks:'',lossScenarios:'',whatWouldChangeMind:''}, thesis:{}, versions:[] }; }
@@ -699,6 +700,13 @@ function initState(){
     STATE.ui.mobileNavOpen = !!STATE.ui.mobileNavOpen;
     if(STATE.ui.autoRefreshOnUpdate==null) STATE.ui.autoRefreshOnUpdate = false;
     STATE.ui.updateBannerDismissed = false;
+    // Transient, session-only UI state (a toast bubble, an open modal, the "Saving…" flash)
+    // must never survive a reload — if the page closed mid-flight while one was showing,
+    // it would otherwise get baked into the saved snapshot and reappear stuck forever,
+    // since whatever timer was going to clear it doesn't survive the reload either.
+    STATE.ui.toast = null;
+    STATE.ui.modal = null;
+    STATE.ui.savingFlash = false;
     STATE.github = STATE.github || { connected:false, repo:'', branch:'main', token:'', lastSync:null, autoSync:true, lastError:null };
     if(STATE.github.lastError===undefined) STATE.github.lastError=null;
     if(STATE.github.autoSync==null) STATE.github.autoSync = true;
