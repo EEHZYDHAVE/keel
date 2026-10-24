@@ -716,6 +716,7 @@ function initState(){
   const loaded = loadState();
   if(loaded){
     STATE = loaded;
+    cleanBrTags(STATE.investments);
     STATE.ui.theme = STATE.ui.theme || 'dark';
     STATE.ui.avatarMenuOpen = !!STATE.ui.avatarMenuOpen;
     STATE.ui.searchOpen = !!STATE.ui.searchOpen;
@@ -1408,7 +1409,7 @@ function wsSummary(inv,f,w,os,comp){
   return `
   <div class="card" style="margin-bottom:14px">
     <div class="card-title" style="margin-bottom:8px">About</div>
-    <textarea class="reason" style="min-height:64px" placeholder="What does this company/issuer/fund actually do? A brief description so you don't have to hold it in your head." data-blur="invfield:${inv.id}:description">${esc(inv.description)}</textarea>
+    <textarea class="reason" style="min-height:64px" placeholder="What does this company/issuer/fund actually do? A brief description so you don't have to hold it in your head." data-blur="invfield:${inv.id}:description">${escText(inv.description)}</textarea>
   </div>
   <div class="grid grid-2" style="align-items:start">
     <div class="card" style="display:flex;gap:20px;align-items:center">
@@ -1494,7 +1495,7 @@ function criterionRow(inv, cat, cr, isRisk){
         <div class="scale-hint">${confHint(a,' · ')}</div>
       </div>
     </div>
-    <textarea class="reason" placeholder="Reasoning: why this score?" data-blur="reason:${key}">${esc(a.reasoning)}</textarea>
+    <textarea class="reason" placeholder="Reasoning: why this score?" data-blur="reason:${key}">${escText(a.reasoning)}</textarea>
     <div class="evidence-list">${(a.evidence||[]).map((e,idx)=>`<div class="evidence-chip">${icon('clip')} ${esc(e)}<button data-action="rm-evidence:${key}:${idx}">${icon('x')}</button></div>`).join('')}</div>
     <div class="add-evidence" data-action="add-evidence:${key}">${icon('plus')} Add source</div>
   </div>`;
@@ -1576,9 +1577,9 @@ function wsRisk(inv,f){
   }).join('')}
   </div>
   <div class="sec-title">Narrative Risk Assessment</div>
-  <div class="field-full"><label>Key Risks</label><textarea data-blur="risknote:${inv.id}:keyRisks" placeholder="What are the most important risks here?">${esc(rn.keyRisks)}</textarea></div>
-  <div class="field-full"><label>Potential Loss Scenarios</label><textarea data-blur="risknote:${inv.id}:lossScenarios" placeholder="What could cause a large or permanent loss?">${esc(rn.lossScenarios)}</textarea></div>
-  <div class="field-full"><label>What Could Change My Mind?</label><textarea data-blur="risknote:${inv.id}:whatWouldChangeMind" placeholder="What evidence would make you reassess the risk profile?">${esc(rn.whatWouldChangeMind)}</textarea></div>
+  <div class="field-full"><label>Key Risks</label><textarea data-blur="risknote:${inv.id}:keyRisks" placeholder="What are the most important risks here?">${escText(rn.keyRisks)}</textarea></div>
+  <div class="field-full"><label>Potential Loss Scenarios</label><textarea data-blur="risknote:${inv.id}:lossScenarios" placeholder="What could cause a large or permanent loss?">${escText(rn.lossScenarios)}</textarea></div>
+  <div class="field-full"><label>What Could Change My Mind?</label><textarea data-blur="risknote:${inv.id}:whatWouldChangeMind" placeholder="What evidence would make you reassess the risk profile?">${escText(rn.whatWouldChangeMind)}</textarea></div>
   `;
 }
 
@@ -1595,7 +1596,7 @@ function wsThesis(inv){
   ];
   return `
   <div class="callout">${icon('info')} This is narrative research, kept separate from the numerical score.</div>
-  ${fields.map(([k,label,ph])=>`<div class="field-full"><label>${label}</label><textarea data-blur="thesis:${inv.id}:${k}" placeholder="${ph}">${esc(th[k])}</textarea></div>`).join('')}
+  ${fields.map(([k,label,ph])=>`<div class="field-full"><label>${label}</label><textarea data-blur="thesis:${inv.id}:${k}" placeholder="${ph}">${escText(th[k])}</textarea></div>`).join('')}
   <div class="form-grid">
     <div class="form-field"><label>Expected Holding Period</label><input type="text" value="${escAttr(th.holdingPeriod||'')}" placeholder="e.g. 3–5 years" data-blur="thesis:${inv.id}:holdingPeriod"></div>
     <div class="form-field"><label>Review Date</label><input type="date" value="${escAttr(th.reviewDate||'')}" data-blur="thesis:${inv.id}:reviewDate"></div>
@@ -1740,6 +1741,19 @@ function versionViewHtml(inv, idx){
 ============================================================ */
 function esc(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); }
 function escAttr(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+/* Text going INSIDE a <textarea> must stay plain text: escape the characters HTML cares
+   about but leave real line breaks alone. (esc() turns line breaks into <br> tags, which is
+   right for read-only display but shows up as literal "<br>" inside an editable box.) */
+function escText(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+/* Earlier builds saved the literal text "<br>" into notes whenever a text box was edited.
+   Walk saved data and turn those back into real line breaks. Safe to run repeatedly. */
+function cleanBrTags(node){
+  if(node==null) return node;
+  if(typeof node==='string') return node.replace(/<br\s*\/?>/gi,'\n');
+  if(Array.isArray(node)){ for(let i=0;i<node.length;i++) node[i]=cleanBrTags(node[i]); return node; }
+  if(typeof node==='object'){ for(const k of Object.keys(node)) node[k]=cleanBrTags(node[k]); return node; }
+  return node;
+}
 
 /* ============================================================
    EVENT HANDLING (delegation)
@@ -1802,7 +1816,7 @@ function bindEvents(){
         try{
           const parsed = JSON.parse(reader.result);
           if(!parsed || !Array.isArray(parsed.investments)) throw new Error('bad shape');
-          STATE.investments = parsed.investments;
+          STATE.investments = cleanBrTags(parsed.investments);
           STATE.frameworkOverrides = parsed.frameworkOverrides || {};
           STATE.ui.isDemo = false;
           persist(); render(); toast('Data imported');
@@ -2082,7 +2096,7 @@ async function githubPull(opts){
     const decoded = decodeURIComponent(escape(atob((j.content||'').replace(/\n/g,''))));
     const parsed = JSON.parse(decoded);
     if(!parsed || !Array.isArray(parsed.investments)) throw new Error('Unexpected file contents');
-    STATE.investments = parsed.investments;
+    STATE.investments = cleanBrTags(parsed.investments);
     STATE.frameworkOverrides = parsed.frameworkOverrides || {};
     STATE.ui.isDemo = false;
     STATE.github.lastSync = Date.now();
