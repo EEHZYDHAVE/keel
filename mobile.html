@@ -421,9 +421,31 @@ function profilesFor(typeKey){
 ============================================================ */
 function score100(s){ return s==null? null : Math.round(s*20); }
 function categoryAssessments(analysis, catId){ return (analysis.categories[catId] && analysis.categories[catId].criteria) || {}; }
+/* Confidence-adjusted scoring. Confidence (1-5) is the weight on a criterion's score:
+   at 5 the score counts in full; as confidence drops, the score is pulled toward 3
+   (Average), reaching exactly 3 at confidence 1 ("I have nothing to go on").
+   effective = 3 + (score - 3) * (confidence - 1) / 4
+   e.g. a 5 at confidence 2 counts as 3.5. A criterion with no confidence set counts in
+   full, so older analyses don't shift. Can be switched off in Settings. */
+function confAdjustOn(){ return !(STATE && STATE.ui && STATE.ui.confidenceAdjust===false); }
+function effectiveScore(a){
+  if(!a || a.score==null) return null;
+  if(!confAdjustOn() || a.confidence==null) return a.score;
+  return 3 + (a.score-3)*((a.confidence-1)/4);
+}
+function confHint(a, sep){
+  const labels = ['','Very Low','Low','Moderate','High','Very High'];
+  if(a.confidence==null) return '1 = Very Low'+sep+'5 = Very High';
+  if(a.score!=null && confAdjustOn()){
+    const eff = effectiveScore(a);
+    if(Math.abs(eff-a.score)>0.001) return labels[a.confidence]+sep+'counts as '+(Math.round(eff*10)/10)+' in the roll-up';
+    return labels[a.confidence]+sep+'counts in full';
+  }
+  return labels[a.confidence];
+}
 function categoryScore(analysis, catDef){
   const a = categoryAssessments(analysis, catDef.id);
-  const scores = catDef.criteria.map(c=> a[c.id] && a[c.id].score).filter(s=>s!=null);
+  const scores = catDef.criteria.map(c=> effectiveScore(a[c.id])).filter(s=>s!=null);
   if(!scores.length) return null;
   return scores.reduce((x,y)=>x+y,0)/scores.length;
 }
@@ -486,7 +508,7 @@ function initials(name){ return (name||'?').split(/\s+/).slice(0,2).map(w=>w[0])
 let STATE = null;
 const LS_KEY = 'keel_invresearch_v1';
 const LS_KEY_LEGACY = 'ledger_invresearch_v1';
-const APP_VERSION = 'v7'; // keep in sync with CACHE_VERSION suffix in service-worker.js
+const APP_VERSION = 'v5'; // keep in sync with CACHE_VERSION suffix in service-worker.js
 
 function newAnalysis(){ return { categories:{}, valuation:{}, riskNotes:{keyRisks:'',lossScenarios:'',whatWouldChangeMind:''}, thesis:{}, versions:[] }; }
 
@@ -1156,6 +1178,10 @@ function settingsPage(){
       </div>
     </div>
   </div>
+  <div class="section-title">Scoring</div>
+  <div class="card">
+    <div class="row-toggle"><div><div class="row-toggle-main">Confidence-adjusted scoring</div><div class="row-toggle-sub">A high score you're unsure about is pulled toward 3 (Average) before it rolls up. Off = scores count as entered.</div></div><div class="theme-switch ${confAdjustOn()?'on':''}" data-action="toggle-conf-adjust"><div class="knob"></div></div></div>
+  </div>
   <div class="section-title">Data</div>
   <div class="card">
     <div class="row-toggle"><div><div class="row-toggle-main">Export data</div><div class="row-toggle-sub">Download everything as JSON</div></div><div class="btn btn-ghost btn-sm" data-action="export-data">${icon('download')}</div></div>
@@ -1295,6 +1321,7 @@ function criterionRow(inv, cat, cr, isRisk){
     <div class="crit-block">
       <div class="crit-field-lbl">Confidence</div>
       <div class="scale scale-conf">${[1,2,3,4,5].map(v=>`<div class="scale-btn ${a.confidence===v?'on':''}" data-action="set-conf:${key}:${v}">${v}</div>`).join('')}</div>
+      <div class="scale-hint">${confHint(a,', ')}</div>
     </div>
     <textarea class="reason" placeholder="Reasoning: why this score?" data-blur="reason:${key}">${esc(a.reasoning)}</textarea>
     <div class="evidence-list">${(a.evidence||[]).map((e,idx)=>`<div class="evidence-chip">${icon('clip')} ${esc(e)}<button data-action="rm-evidence:${key}:${idx}">${icon('x')}</button></div>`).join('')}</div>
@@ -1415,6 +1442,7 @@ function scoreExplainSheetBody(inv){
   ${f.categories.map(c=>{ const s=categoryScore(inv.analysis,c); const s100=s!=null?score100(s):null; const wgt=w[c.id]; const contrib = s100!=null? Math.round(s100*wgt)/100 : null;
     return `<div class="risk-mini"><span class="nm">${c.name}</span><span style="display:flex;gap:12px;font-size:12px" class="num"><span class="muted">${wgt}%</span><span style="font-weight:700">${s100!=null?s100:'-'}</span></span></div>`; }).join('')}
   <div class="caveat">${icon('info')} Categories with no scored criteria are excluded from the weighted average rather than counted as zero.</div>
+  <div class="caveat">${icon('info')} ${confAdjustOn()? 'Confidence adjustment is <b>on</b>: each criterion score is pulled toward 3 (Average) the lower your confidence is, so a 5 at confidence 2 counts as 3.5. Criteria with no confidence set count in full. Change this in Settings.' : 'Confidence adjustment is <b>off</b>: criterion scores count exactly as entered. You can turn it on in Settings.'}</div>
   `;
 }
 function evidenceSheetBody(key){
@@ -1725,6 +1753,7 @@ function handleAction(action, e){
 
   if(kind==='reset-weights'){ delete STATE.frameworkOverrides[parts[1]]; render(); return; }
   if(kind==='toggle-theme'){ STATE.ui.theme = STATE.ui.theme==='light'?'dark':'light'; persist(); render(); return; }
+  if(kind==='toggle-conf-adjust'){ STATE.ui.confidenceAdjust = !confAdjustOn(); persist(); render(); toast('Confidence adjustment '+(confAdjustOn()?'on':'off')); return; }
   if(kind==='apply-update'){ applyUpdate(); return; }
   if(kind==='dismiss-update-banner'){ STATE.ui.updateBannerDismissed = true; render(); return; }
   if(kind==='toggle-auto-refresh'){
