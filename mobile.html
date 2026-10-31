@@ -270,6 +270,41 @@ textarea.reason{width:100%;background:var(--surface2);border:1px solid var(--bor
 .text2{color:var(--text2);}
 .hr{height:1px;background:var(--border-soft);margin:16px 0;}
 .search-results-list .sr-item{display:flex;align-items:center;gap:11px;padding:12px 4px;border-bottom:1px solid var(--border-soft);}
+/* ---------- scenario valuation ---------- */
+.calc-tag{font-size:9.5px;font-weight:600;color:var(--accent);background:var(--accent-soft);border-radius:8px;padding:1px 6px;margin-left:6px;letter-spacing:.02em;}
+.metric-box input.is-calc::placeholder{color:var(--text2);font-style:italic;font-weight:700;opacity:1;}
+.metric-box input[type="date"]{font-size:13px;}
+.static-val{font-size:14.5px;font-weight:700;}
+.tiny{font-size:10.5px;}
+.strong{font-weight:700;}
+.big{font-size:15px;font-weight:800;}
+.stale{color:var(--warning);font-weight:600;}
+.scn-ok{color:var(--positive);} .scn-mid{color:var(--warning);} .scn-low{color:var(--negative);}
+.scn-tag-bear{color:var(--negative);} .scn-tag-base{color:var(--accent);} .scn-tag-bull{color:var(--positive);}
+.scn-set{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;margin-bottom:8px;}
+
+.scn-wrap{border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface);overflow:hidden;margin:10px 0 12px;}
+.scn-grid{display:grid;grid-template-columns:1.3fr repeat(3,minmax(0,1fr));}
+.scn-grid .cell,.scn-grid .lbl,.scn-grid .out,.scn-grid .h,.scn-grid .sec{padding:8px 6px;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;font-size:11.5px;min-width:0;}
+.scn-grid .h{font-weight:700;background:var(--surface2);gap:8px;}
+.scn-grid .sec{grid-column:1/-1;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:700;background:var(--surface2);padding:6px 12px;}
+.scn-grid .lbl{color:var(--text2);font-size:12px;}
+.scn-grid .out{font-variant-numeric:tabular-nums;font-weight:600;}
+.scn-grid .out.key{font-size:14px;}
+.scn-grid input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:13px;font-weight:600;padding:6px 9px;font-variant-numeric:tabular-nums;}
+.scn-grid input::placeholder{color:var(--muted);font-weight:500;}
+.scn-grid input:focus{border-color:var(--accent);outline:none;}
+.scn-note{display:flex;gap:9px;align-items:flex-start;font-size:12px;color:var(--text2);background:var(--surface2);border:1px solid var(--border-soft);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:10px;line-height:1.5;}
+.scn-summary{background:var(--surface2);border:1px solid var(--border-soft);border-left:2.5px solid var(--accent);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:10px;}
+.scn-line{font-size:12.5px;line-height:1.6;margin-bottom:4px;}
+.sens-wrap{margin-bottom:12px;}
+.sens{border-collapse:collapse;font-size:12px;}
+.sens th{font-size:11px;color:var(--muted);font-weight:600;padding:6px 10px;text-align:center;}
+.sens td{padding:7px 14px;text-align:center;font-variant-numeric:tabular-nums;font-weight:600;border:1px solid var(--border-soft);}
+.sens td.ok{background:var(--positive-soft);color:var(--positive);}
+.sens td.mid{background:var(--warning-soft);color:var(--warning);}
+.sens td.low{background:var(--negative-soft);color:var(--negative);}
+.sens td.base{outline:2px solid var(--accent);outline-offset:-2px;}
 </style>
 </head>
 <body>
@@ -692,7 +727,7 @@ async function githubPush(opts){
     STATE.github.lastSync = Date.now();
     STATE.github.lastError = null;
     ghNoticeShown = false;
-    persist(); render();
+    persist(); if(!typingNow()) render();
     if(!opts.silent) toast('Pushed to GitHub');
   }catch(err){
     // A 409 means the file on GitHub changed since we last read its sha — most often because
@@ -1316,6 +1351,7 @@ function wsAnalysis(inv,f,comp){
       </div>
       ${isOpen? `<div class="acc-body">
         ${isRisk? `<div class="scale-hint" style="margin-top:11px">${icon('info')} Higher score = lower risk.</div>`:''}
+        ${(c.id==='ret' && inv.type==='stock')? expReturnHint(inv) : ''}
         ${c.criteria.map(cr=>criterionRow(inv, c, cr, isRisk)).join('')}
       </div>` : ''}
     </div>`;
@@ -1343,7 +1379,323 @@ function criterionRow(inv, cat, cr, isRisk){
   </div>`;
 }
 
+/* ============================================================
+   SCENARIO VALUATION (stocks): earnings x P/E, Bear / Base / Bull
+   Share price in N years = EPS in N years x exit P/E.
+   Dividends each year = that year's EPS x payout, assumed paid at year end
+   and not reinvested.
+   "Highest price for your target" = what you could pay today and still earn
+   your required annual return (exit price + dividends, discounted back).
+   All inputs are what the user typed; nothing here is a forecast or advice.
+============================================================ */
+const SCN_KEYS = ['bear','base','bull'];
+const SCN_META = {
+  bear:{label:'Bear', sub:'downside'},
+  base:{label:'Base', sub:'current reality'},
+  bull:{label:'Bull', sub:'upside'},
+};
+function parseNum(s){
+  if(s==null) return null;
+  const t = String(s).replace(/[^0-9.\-]/g,'');
+  if(t===''||t==='-'||t==='.') return null;
+  const n = parseFloat(t);
+  return isFinite(n)? n : null;
+}
+function curSym(code){
+  const m = {USD:'$',NGN:'₦',EUR:'€',GBP:'£',JPY:'¥',ZAR:'R ',KES:'KSh ',GHS:'GH₵'};
+  const c = (code||'').toUpperCase();
+  if(m[c]!==undefined) return m[c];
+  return c? c+' ' : '$';
+}
+function fmtMoney(x, code){
+  if(x==null||!isFinite(x)) return '-';
+  const a = Math.abs(x), d = a>=1000? 0 : 2;
+  return (x<0?'-':'')+curSym(code)+a.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+}
+function fmtPct1(x){ return (x==null||!isFinite(x))? '-' : x.toFixed(1)+'%'; }
+function round1(x){ return Math.round(x*10)/10; }
+function vinId(k){ return 'vin-'+k.replace(/[^A-Za-z0-9]/g,''); }
+function typingNow(){
+  const a = document.activeElement;
+  return !!(a && (a.tagName==='INPUT'||a.tagName==='TEXTAREA'||a.tagName==='SELECT'));
+}
+
+function ensureScn(inv){
+  const a = inv.analysis;
+  if(!a.scn) a.scn = { years:'5', hurdle:'12', probs:{bear:'25',base:'50',bull:'25'}, s:{bear:{},base:{},bull:{}} };
+  if(!a.scn.probs) a.scn.probs = {bear:'25',base:'50',bull:'25'};
+  if(!a.scn.s) a.scn.s = {bear:{},base:{},bull:{}};
+  SCN_KEYS.forEach(k=>{ if(!a.scn.s[k]) a.scn.s[k] = {}; });
+  return a.scn;
+}
+
+/* Share Price, EPS and P/E are the same fact seen three ways: enter any two and the third
+   is worked out (and labelled as calculated). Dividend yield is worked out the same way. */
+function valMarket(inv){
+  const v = inv.analysis.valuation || {};
+  const price = parseNum(v['Share Price']), peIn = parseNum(v['P/E']), epsIn = parseNum(v['EPS']), dps = parseNum(v['Dividend / Share']);
+  const calc = {};
+  let p = price, pe = peIn, eps = epsIn;
+  if(p!=null && epsIn!=null && epsIn!==0 && peIn==null){ pe = p/epsIn; calc['P/E'] = pe; }
+  else if(p!=null && peIn!=null && peIn!==0 && epsIn==null){ eps = p/peIn; calc['EPS'] = eps; }
+  else if(epsIn!=null && peIn!=null && price==null){ p = epsIn*peIn; calc['Share Price'] = p; }
+  const payout = (dps!=null && eps!=null && eps>0)? dps/eps*100 : null;
+  if(dps!=null && p!=null && p>0 && parseNum(v['Dividend Yield'])==null) calc['Dividend Yield'] = dps/p*100;
+  const ok = p!=null && p>0 && eps!=null && eps>0;
+  return { price:p, eps, pe:(pe!=null && pe>0)? pe : (ok? p/eps : null), dps, payout, calc, ok };
+}
+function calcDisplay(k, x){
+  if(k==='Dividend Yield') return x.toFixed(2)+'%';
+  if(k==='P/E') return x.toFixed(1);
+  return Math.abs(x)>=1000? x.toFixed(0) : x.toFixed(2);
+}
+
+function scnRun(m, N, h, g, xpe, payPct){
+  const gg = Math.max(g, -99);
+  const pay = payPct/100;
+  let eps = m.eps, divs = 0, pv = 0;
+  for(let t=1; t<=N; t++){
+    eps *= 1+gg/100;
+    const d = eps*pay;
+    divs += d;
+    pv += d/Math.pow(1+h, t);
+  }
+  const exitP = eps*xpe;
+  const total = (exitP+divs)/m.price - 1;
+  const annual = (1+total)>0? Math.pow(1+total, 1/N)-1 : -1;
+  const maxPay = exitP/Math.pow(1+h, N) + pv;
+  return { g, xpe, pay:payPct, epsN:eps, exitP, divs, total:total*100, annual:annual*100, maxPay, vsPrice: maxPay>0? (m.price/maxPay-1)*100 : null };
+}
+function scnModel(inv){
+  const m = valMarket(inv), sc = ensureScn(inv);
+  const N = Math.min(30, Math.max(1, Math.round(parseNum(sc.years)||5)));
+  const hp = parseNum(sc.hurdle);
+  const hurdle = hp==null? 12 : hp;
+  const out = { m, N, hurdle, res:{bear:null,base:null,bull:null}, weighted:null, probSum:0 };
+  SCN_KEYS.forEach(k=>{
+    const s = sc.s[k] || {};
+    const g = parseNum(s.g);
+    const xpe = parseNum(s.pe)!=null? parseNum(s.pe) : m.pe;
+    const pay = parseNum(s.payout)!=null? parseNum(s.payout) : (m.payout!=null? m.payout : 0);
+    if(!m.ok || g==null || xpe==null || xpe<=0) return;
+    out.res[k] = scnRun(m, N, hurdle/100, g, xpe, pay);
+  });
+  const pr = {}; SCN_KEYS.forEach(k=>{ pr[k] = parseNum(sc.probs[k]) || 0; });
+  out.probSum = pr.bear+pr.base+pr.bull;
+  let wsum = 0, wtot = 0, n = 0;
+  SCN_KEYS.forEach(k=>{ if(out.res[k]){ wsum += pr[k]; wtot += pr[k]*out.res[k].total; n++; } });
+  if(wsum>0 && n>1){
+    const t = wtot/wsum/100;
+    out.weighted = { annual:(1+t>0? Math.pow(1+t,1/N)-1 : -1)*100, n, pr };
+  }
+  return out;
+}
+/* Quick-fill: Bear and Bull as a spread around the Base case (growth -/+6 points,
+   exit P/E x0.7 / x1.2). Starting point only; the user edits from there. */
+function scnFill(inv){
+  const sc = ensureScn(inv), m = valMarket(inv), b = sc.s.base;
+  const g = parseNum(b.g);
+  if(g==null) return false;
+  const xpe = parseNum(b.pe)!=null? parseNum(b.pe) : m.pe;
+  const pay = b.payout || '';
+  sc.s.bear = { g:String(round1(g-6)), pe: xpe!=null? String(round1(xpe*0.7)) : '', payout: pay };
+  sc.s.bull = { g:String(round1(g+6)), pe: xpe!=null? String(round1(xpe*1.2)) : '', payout: pay };
+  return true;
+}
+function sensData(model){
+  const b = model.res.base;
+  if(!b) return null;
+  const gs  = [-6,-3,0,3,6].map(d=>round1(b.g+d));
+  const pes = [0.7,0.85,1,1.15,1.3].map(f=>round1(b.xpe*f));
+  const rows = pes.map(pe=> gs.map(g=> scnRun(model.m, model.N, model.hurdle/100, g, pe, b.pay).annual));
+  return { gs, pes, rows };
+}
+
+function scnBand(annual, hurdle){ if(annual>=hurdle) return 'ok'; if(annual>=hurdle-3) return 'mid'; return 'low'; }
+function bandPhrase(band, hurdle, annual){
+  const h = fmtPct1(hurdle).replace('.0%','%');
+  if(band==='ok') return 'which meets your '+h+' target';
+  const gap = round1(hurdle-annual);
+  return 'which is '+gap.toFixed(1)+' points below your '+h+' target';
+}
+
+function scnSummaryHtml(inv, model){
+  const m = model.m, cur = inv.currency;
+  if(!m.ok){
+    return `<div class="scn-note">${icon('info')}<div>Enter any two of <b>Share Price</b>, <b>EPS</b> and <b>P/E</b> above to start. The third is worked out for you. Earnings need to be positive for a P/E-based model.</div></div>`;
+  }
+  const b = model.res.base;
+  if(!b){
+    return `<div class="scn-note">${icon('info')}<div>Enter the <b>Base</b> case earnings growth to see results. Exit P/E and payout default to today's values.</div></div>`;
+  }
+  const band = scnBand(b.annual, model.hurdle);
+  const hs = fmtPct1(model.hurdle).replace('.0%','%');
+  const lines = [];
+  lines.push(`<b>Base case:</b> <span class="scn-${band} strong">${fmtPct1(b.annual)} a year</span> over ${model.N} year${model.N===1?'':'s'}, ${bandPhrase(band, model.hurdle, b.annual)}.`);
+  if(b.vsPrice!=null){
+    const d = b.vsPrice;
+    lines.push(Math.abs(d)<0.5
+      ? `Today's price (${fmtMoney(m.price,cur)}) is about equal to the ${fmtMoney(b.maxPay,cur)} that earns your ${hs} a year in the Base case.`
+      : `Today's price (${fmtMoney(m.price,cur)}) is <b>${Math.abs(d).toFixed(0)}% ${d>0?'above':'below'}</b> the ${fmtMoney(b.maxPay,cur)} that would earn your ${hs} a year in the Base case.`);
+  }
+  const be = model.res.bear, bu = model.res.bull;
+  if(be && bu) lines.push(`Across scenarios: ${fmtPct1(be.annual)} a year (Bear) to ${fmtPct1(bu.annual)} a year (Bull).`);
+  if(model.weighted){
+    const w = model.weighted;
+    let t = `Probability-weighted: <b>${fmtPct1(w.annual)} a year</b> (weights ${SCN_KEYS.map(k=>w.pr[k]).join(' / ')}).`;
+    if(Math.abs(model.probSum-100)>0.01) t += ` The probabilities add to ${round1(model.probSum)}%, so they are scaled to 100%.`;
+    lines.push(t);
+  }
+  return `<div class="scn-summary">${lines.map(l=>`<div class="scn-line">${l}</div>`).join('')}
+    <div class="caveat">${icon('info')} Estimates depend entirely on your assumptions. Dividends are assumed paid at each year end and not reinvested. This is a structured estimate, not a prediction or a recommendation.</div></div>`;
+}
+function scnResultsHtml(inv, model, withHeader){
+  const m = model.m, cur = inv.currency, N = model.N, R = model.res;
+  if(!m.ok) return '';
+  const dash = '<span class="muted">-</span>';
+  const row = (label, fn, cls)=> `<div class="lbl">${label}</div>${SCN_KEYS.map(k=>`<div class="out ${cls||''}">${R[k]? fn(R[k]) : dash}</div>`).join('')}`;
+  const body =
+    `<div class="sec">Results</div>`
+    + row(`EPS in year ${N}`, r=>fmtMoney(r.epsN,cur))
+    + row(`Share price in year ${N}`, r=>fmtMoney(r.exitP,cur))
+    + row('Dividends collected', r=>fmtMoney(r.divs,cur))
+    + row('Total return', r=>fmtPct1(r.total))
+    + row('Annual return', r=>{ const b = scnBand(r.annual, model.hurdle); return `<div><span class="scn-${b} big">${fmtPct1(r.annual)}</span><div class="tiny muted">${{ok:'meets target',mid:'near target',low:'below target'}[b]}</div></div>`; }, 'key')
+    + row(`Highest price for ${fmtPct1(model.hurdle).replace('.0%','%')}`, r=>fmtMoney(r.maxPay,cur))
+    + row("Today's price vs that", r=> r.vsPrice==null? '-' : (Math.abs(r.vsPrice)<0.5? 'about equal' : Math.abs(r.vsPrice).toFixed(0)+'% '+(r.vsPrice>0?'above':'below')));
+  if(!withHeader) return body;
+  return `<div class="scn-wrap"><div class="scn-grid"><div class="h"></div>${SCN_KEYS.map(k=>`<div class="h scn-tag-${k}">${SCN_META[k].label}</div>`).join('')}${body}</div></div>`;
+}
+function sensHtml(inv, model){
+  if(!STATE.ui.scnSens) return '';
+  const d = sensData(model);
+  if(!d) return `<div class="scn-note">${icon('info')}<div>The sensitivity grid is built around your Base case. Enter Base earnings growth first.</div></div>`;
+  const hs = fmtPct1(model.hurdle).replace('.0%','%');
+  return `<div class="sens-wrap">
+    <div class="tiny muted" style="margin-bottom:8px">Annual return, keeping the Base payout. Rows: exit P/E. Columns: earnings growth per year. Outlined cell: your Base case.</div>
+    <div style="overflow-x:auto"><table class="sens"><thead><tr><th>Exit P/E</th>${d.gs.map(g=>`<th>${g}%</th>`).join('')}</tr></thead>
+    <tbody>${d.rows.map((r,i)=>`<tr><th>${d.pes[i]}</th>${r.map((a,j)=>`<td class="${scnBand(a, model.hurdle)}${(i===2&&j===2)?' base':''}">${fmtPct1(a)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+    <div class="tiny muted" style="margin-top:8px">Green: meets your ${hs} target. Amber: within 3 points. Red: further below.</div>
+  </div>`;
+}
+function expReturnHint(inv){
+  const model = scnModel(inv), b = model.res.base;
+  if(!b) return '';
+  const be = model.res.bear, bu = model.res.bull;
+  return `<div class="scale-hint" style="margin:11px 0 2px">${icon('info')} Your Valuation tab Base case implies <b>${fmtPct1(b.annual)} a year</b> over ${model.N} years${be&&bu? ` (Bear ${fmtPct1(be.annual)}, Bull ${fmtPct1(bu.annual)})` : ''}. Use it as evidence; the score is still your judgment.</div>`;
+}
+function asofNoteHtml(inv){
+  const s = (inv.analysis.valuation||{})['Price as of'];
+  if(!s) return '';
+  const t = Date.parse(s);
+  if(isNaN(t)) return '';
+  const days = Math.floor((Date.now()-t)/86400000);
+  if(days>30) return `<span class="stale">${days} days old, worth refreshing</span>`;
+  return `<span class="muted">${days<=0? 'today' : days+' day'+(days===1?'':'s')+' old'}</span>`;
+}
+function valBox(inv, k, m){
+  const v = inv.analysis.valuation || {};
+  const c = m.calc[k];
+  return `<div class="metric-box"><label>${k}<span class="calc-tag" id="calc-${vinId(k)}" style="${c!=null?'':'display:none'}">calculated</span></label><input type="text" inputmode="decimal" id="${vinId(k)}" class="${c!=null?'is-calc':''}" placeholder="${c!=null? calcDisplay(k,c) : '-'}" value="${escAttr(v[k]||'')}" data-live="val:${inv.id}:${k}"></div>`;
+}
+function payoutBox(m){
+  return `<div class="metric-box"><label>Payout ratio<span class="calc-tag">calculated</span></label><div class="static-val num" id="val-payout">${m.payout!=null? m.payout.toFixed(0)+'%' : '-'}</div></div>`;
+}
+function asofBox(inv){
+  const v = inv.analysis.valuation || {};
+  return `<div class="metric-box"><label>Price as of</label><input type="date" id="vin-Priceasof" value="${escAttr(v['Price as of']||'')}" data-live="val:${inv.id}:Price as of"><div id="val-asof-note" class="tiny" style="margin-top:3px">${asofNoteHtml(inv)}</div></div>`;
+}
+function scnPlaceholders(m){
+  return { pe: m.pe!=null? m.pe.toFixed(1) : '-', pay: m.payout!=null? m.payout.toFixed(0) : '0' };
+}
+
+/* Typing in any valuation box updates saved data and the results IN PLACE (no re-render),
+   so the cursor never jumps and the numbers move as you type. */
+let liveSaveTimer = null;
+function handleLive(spec, value){
+  const p = spec.split(':');
+  const inv = findInv(p[1]);
+  if(!inv) return;
+  if(p[0]==='val'){
+    if(!inv.analysis.valuation) inv.analysis.valuation = {};
+    inv.analysis.valuation[p.slice(2).join(':')] = value;
+  } else if(p[0]==='scn'){
+    const sc = ensureScn(inv), grp = p[2], fld = p[3];
+    if(grp==='set') sc[fld] = value;
+    else if(grp==='prob') sc.probs[fld] = value;
+    else { if(!sc.s[grp]) sc.s[grp] = {}; sc.s[grp][fld] = value; }
+  }
+  inv.updatedAt = Date.now();
+  refreshValLive(inv);
+  clearTimeout(liveSaveTimer);
+  liveSaveTimer = setTimeout(function(){ persist(); scheduleAutoSync(); }, 350);
+}
+function refreshValLive(inv){
+  if(inv.type!=='stock') return;
+  const model = scnModel(inv), m = model.m;
+  const el = id=>document.getElementById(id);
+  const sum = el('scn-summary'); if(sum) sum.innerHTML = scnSummaryHtml(inv, model);
+  const res = el('scn-results'); if(res) res.innerHTML = scnResultsHtml(inv, model, res.getAttribute('data-full')==='1');
+  const sen = el('scn-sens'); if(sen) sen.innerHTML = sensHtml(inv, model);
+  ['Share Price','EPS','P/E','Dividend Yield'].forEach(k=>{
+    const inp = el(vinId(k)); if(!inp) return;
+    const c = m.calc[k];
+    inp.placeholder = c!=null? calcDisplay(k,c) : '-';
+    inp.classList.toggle('is-calc', c!=null);
+    const tag = el('calc-'+vinId(k)); if(tag) tag.style.display = c!=null? '' : 'none';
+  });
+  const po = el('val-payout'); if(po) po.textContent = m.payout!=null? m.payout.toFixed(0)+'%' : '-';
+  const an = el('val-asof-note'); if(an) an.innerHTML = asofNoteHtml(inv);
+  const ph = scnPlaceholders(m);
+  SCN_KEYS.forEach(k=>{
+    const a = el('scn-in-'+k+'-pe'); if(a) a.placeholder = ph.pe;
+    const b = el('scn-in-'+k+'-payout'); if(b) b.placeholder = ph.pay;
+  });
+}
+
 function wsValuation(inv,f){
+  if(inv.type==='stock') return stockValuation(inv,f);
+  return wsValuationGeneric(inv,f);
+}
+function stockValuation(inv,f){
+  const sc = ensureScn(inv), model = scnModel(inv), m = model.m, ph = scnPlaceholders(m);
+  const tab = SCN_KEYS.includes(STATE.ui.scnTab)? STATE.ui.scnTab : 'base';
+  const s = sc.s[tab] || {};
+  const others = f.valuationFields.filter(k=>!['Share Price','P/E','Dividend Yield'].includes(k));
+  const box = (label, fld, phText, val, spec)=> `<div class="metric-box"><label>${label}</label><input type="text" inputmode="decimal" id="${spec.id}" placeholder="${phText}" value="${escAttr(val||'')}" data-live="${spec.live}"></div>`;
+  return `
+  <div class="callout">${icon('info')} Objective inputs below are raw data. Qualitative valuation judgment is recorded in the Analysis tab so score, reasoning and evidence stay together.</div>
+  <div class="section-title">Market data</div>
+  <div class="metric-grid">
+    ${valBox(inv,'Share Price',m)}${valBox(inv,'EPS',m)}${valBox(inv,'P/E',m)}${valBox(inv,'Dividend / Share',m)}
+    ${payoutBox(m)}${valBox(inv,'Dividend Yield',m)}${asofBox(inv)}
+  </div>
+  <div class="section-title">Other multiples</div>
+  <div class="metric-grid">${others.map(k=>valBox(inv,k,m)).join('')}</div>
+
+  <div class="section-title">Scenario valuation <span class="muted" style="font-weight:400">(earnings × P/E)</span></div>
+  <div class="metric-grid" style="margin-bottom:10px">
+    ${box('Holding period (years)','','5',sc.years,{id:'scn-in-set-years',live:`scn:${inv.id}:set:years`})}
+    ${box('Required annual return (%)','','12',sc.hurdle,{id:'scn-in-set-hurdle',live:`scn:${inv.id}:set:hurdle`})}
+  </div>
+  <div class="btn btn-ghost btn-sm btn-block" data-action="scn-fill:${inv.id}">Fill Bear and Bull from Base</div>
+  <div class="tiny muted" style="margin:6px 0 12px">Type your Base case, then fill: Bear = Base growth minus 6 points and P/E ×0.7, Bull = plus 6 points and ×1.2. Edit freely. A blank exit P/E or payout uses today's value.</div>
+  <div class="segctl">${SCN_KEYS.map(k=>`<div class="segctl-item ${k===tab?'active':''}" data-action="scn-tab:${k}">${SCN_META[k].label}</div>`).join('')}</div>
+  <div class="tiny muted" style="margin:-6px 0 8px">${SCN_META[tab].label} case: ${SCN_META[tab].sub}</div>
+  <div class="metric-grid">
+    ${box('Earnings growth, % / yr','g','e.g. 8',s.g,{id:`scn-in-${tab}-g`,live:`scn:${inv.id}:${tab}:g`})}
+    ${box('Exit P/E','pe',ph.pe,s.pe,{id:`scn-in-${tab}-pe`,live:`scn:${inv.id}:${tab}:pe`})}
+    ${box('Dividend payout, %','payout',ph.pay,s.payout,{id:`scn-in-${tab}-payout`,live:`scn:${inv.id}:${tab}:payout`})}
+    ${box('Probability, %','','0',sc.probs[tab],{id:`scn-in-prob-${tab}`,live:`scn:${inv.id}:prob:${tab}`})}
+  </div>
+  <div id="scn-results" data-full="1">${scnResultsHtml(inv,model,true)}</div>
+  <div id="scn-summary">${scnSummaryHtml(inv,model)}</div>
+  <div class="btn btn-ghost btn-sm btn-block" style="margin-bottom:10px" data-action="scn-sens">${STATE.ui.scnSens?'Hide':'Show'} sensitivity grid</div>
+  <div id="scn-sens">${sensHtml(inv,model)}</div>
+  `;
+}
+
+function wsValuationGeneric(inv,f){
   const v = inv.analysis.valuation||{};
   const isStock = inv.type==='stock';
   const isBond = inv.type==='bond';
@@ -1353,29 +1705,9 @@ function wsValuation(inv,f){
   <div class="metric-grid">
     ${f.valuationFields.map(k=>`<div class="metric-box"><label>${k}</label><input type="text" inputmode="decimal" placeholder="-" value="${escAttr(v[k]||'')}" data-blur="val:${inv.id}:${k}"></div>`).join('')}
   </div>
-  ${isStock? dcfBlock(inv) : ''}
   ${isBond? realReturnBlock(inv) : ''}
   ${!isStock && !isBond? `<div class="callout">${icon('info')} Fund-level cost of access is captured above. Portfolio valuation and manager/strategy judgment live in the Analysis tab.</div>` : ''}
   `;
-}
-function dcfBlock(inv){
-  const d = inv.analysis.dcf||{};
-  const g = parseFloat(d.growth)||0, disc = parseFloat(d.discount)||10, term = parseFloat(d.terminal)||2.5, price=parseFloat((inv.analysis.valuation||{})['Share Price'])||0;
-  const estimate = price>0 ? Math.round(price * (1 + (g-disc)/100 + (term-2)/100) * 100)/100 : null;
-  return `
-  <div class="section-title">DCF Workspace <span class="muted" style="font-weight:400">(optional)</span></div>
-  <div class="metric-grid">
-    <div class="metric-box"><label>Revenue Growth %</label><input type="text" inputmode="decimal" placeholder="e.g. 8" value="${escAttr(d.growth||'')}" data-blur="dcf:${inv.id}:growth"></div>
-    <div class="metric-box"><label>Operating Margin %</label><input type="text" inputmode="decimal" placeholder="e.g. 18" value="${escAttr(d.margin||'')}" data-blur="dcf:${inv.id}:margin"></div>
-    <div class="metric-box"><label>Discount Rate %</label><input type="text" inputmode="decimal" placeholder="e.g. 10" value="${escAttr(d.discount||'')}" data-blur="dcf:${inv.id}:discount"></div>
-    <div class="metric-box"><label>Terminal Growth %</label><input type="text" inputmode="decimal" placeholder="e.g. 2.5" value="${escAttr(d.terminal||'')}" data-blur="dcf:${inv.id}:terminal"></div>
-  </div>
-  <div class="card" style="margin-bottom:16px">
-    <div style="display:flex;justify-content:space-between;padding:6px 0"><span class="muted" style="font-size:11.5px">Current Price</span><span class="num" style="font-weight:700">${price?('$'+price):'-'}</span></div>
-    <div style="display:flex;justify-content:space-between;padding:6px 0"><span class="muted" style="font-size:11.5px">Illustrative Estimated Value</span><span class="num" style="font-weight:700">${estimate?('$'+estimate):'-'}</span></div>
-    <div style="display:flex;justify-content:space-between;padding:6px 0"><span class="muted" style="font-size:11.5px">Margin of Safety</span><span class="num" style="font-weight:700">${estimate&&price? Math.round((estimate-price)/estimate*1000)/10+'%':'-'}</span></div>
-    <div class="caveat">${icon('info')} A simplified, assumption-dependent estimate, not a precise valuation or a target price.</div>
-  </div>`;
 }
 function realReturnBlock(inv){
   const v = inv.analysis.valuation||{};
@@ -1592,6 +1924,11 @@ function bindEvents(){
     const bindEl = e.target.closest('[data-bind]');
     if(bindEl){ handleBind(bindEl.getAttribute('data-bind'), bindEl.value); return; }
   };
+  root.oninput = function(e){
+    const t = e.target;
+    const spec = t && t.getAttribute && t.getAttribute('data-live');
+    if(spec) handleLive(spec, t.value);
+  };
   if(!root._blurBound){
     root.addEventListener('blur', function(e){
       const t = e.target;
@@ -1737,6 +2074,7 @@ function handleAction(action, e){
       categories: inv.analysis.categories,
       valuation: inv.analysis.valuation,
       dcf: inv.analysis.dcf || null,
+      scn: inv.analysis.scn || null,
       riskNotes: inv.analysis.riskNotes,
       thesis: inv.analysis.thesis,
     }));
@@ -1751,6 +2089,7 @@ function handleAction(action, e){
       inv.analysis.categories = JSON.parse(JSON.stringify(v.snapshot.categories||{}));
       inv.analysis.valuation = JSON.parse(JSON.stringify(v.snapshot.valuation||{}));
       if(v.snapshot.dcf) inv.analysis.dcf = JSON.parse(JSON.stringify(v.snapshot.dcf));
+      if(v.snapshot.scn) inv.analysis.scn = JSON.parse(JSON.stringify(v.snapshot.scn));
       inv.analysis.riskNotes = JSON.parse(JSON.stringify(v.snapshot.riskNotes||{keyRisks:'',lossScenarios:'',whatWouldChangeMind:''}));
       inv.analysis.thesis = JSON.parse(JSON.stringify(v.snapshot.thesis||{}));
       touch(inv);
@@ -1765,6 +2104,9 @@ function handleAction(action, e){
     STATE.ui.modal=null; render(); return;
   }
 
+  if(kind==='scn-fill'){ const inv=findInv(parts[1]); if(!inv) return; if(!scnFill(inv)){ toast('Enter the Base case earnings growth first'); return; } touch(inv); render(); toast('Bear and Bull filled from Base'); return; }
+  if(kind==='scn-sens'){ STATE.ui.scnSens = !STATE.ui.scnSens; render(); return; }
+  if(kind==='scn-tab'){ STATE.ui.scnTab = parts[1]; render(); return; }
   if(kind==='reset-weights'){ delete STATE.frameworkOverrides[parts[1]]; render(); return; }
   if(kind==='toggle-theme'){ STATE.ui.theme = STATE.ui.theme==='light'?'dark':'light'; persist(); render(); return; }
   if(kind==='toggle-conf-adjust'){ STATE.ui.confidenceAdjust = !confAdjustOn(); persist(); render(); toast('Confidence adjustment '+(confAdjustOn()?'on':'off')); return; }
