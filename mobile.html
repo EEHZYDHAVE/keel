@@ -305,6 +305,37 @@ textarea.reason{width:100%;background:var(--surface2);border:1px solid var(--bor
 .sens td.mid{background:var(--warning-soft);color:var(--warning);}
 .sens td.low{background:var(--negative-soft);color:var(--negative);}
 .sens td.base{outline:2px solid var(--accent);outline-offset:-2px;}
+/* ---------- analysis modes ---------- */
+.mode-bar{margin-bottom:12px;}
+.mode-seg{display:inline-flex;max-width:100%;background:var(--surface2);border:1px solid var(--border-soft);border-radius:var(--radius-sm);padding:3px;gap:2px;}
+.mode-seg-item{padding:6px 14px;font-size:12px;font-weight:600;color:var(--text2);border-radius:7px;cursor:pointer;white-space:nowrap;}
+.mode-seg-item.active{background:var(--accent);color:#fff;}
+.mode-desc{margin-top:7px;line-height:1.5;}
+.edit-sub{display:inline-flex;align-items:center;gap:6px;margin-top:12px;font-size:12px;font-weight:600;color:var(--accent);cursor:pointer;}
+.edit-sub svg{width:14px;height:14px;}
+.crit-w{margin-left:8px;font-size:10.5px;font-weight:600;color:var(--muted);background:var(--surface2);border-radius:8px;padding:1px 7px;white-space:nowrap;}
+.simple-score{width:130px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:15px;font-weight:700;padding:7px 10px;font-variant-numeric:tabular-nums;}
+.simple-score:focus{border-color:var(--accent);outline:none;}
+.crit-edit-head,.crit-edit-row{display:grid;grid-template-columns:minmax(0,1fr) 54px 40px 96px;gap:8px;align-items:center;}
+.crit-edit-head{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;padding-bottom:4px;}
+.crit-edit-row{padding:7px 0;border-bottom:1px solid var(--border-soft);}
+.ce-name,.ce-w{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:13px;padding:7px 9px;}
+.ce-name:focus,.ce-w:focus{border-color:var(--accent);outline:none;}
+.ce-w{text-align:center;font-weight:600;}
+.ce-share{text-align:right;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;}
+.ce-btns{display:flex;gap:4px;justify-content:flex-end;}
+.ce-b{min-width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--text2);background:var(--surface2);cursor:pointer;}
+.ce-b svg{width:15px;height:15px;}
+.ce-b.up svg{transform:rotate(-90deg);} .ce-b.down svg{transform:rotate(90deg);}
+.ce-b.off{opacity:.3;pointer-events:none;}
+.ce-b.rm{color:var(--negative);}
+.ce-b.rm.confirm{background:var(--negative);color:#fff;padding:0 8px;font-size:10.5px;font-weight:700;}
+.mode-seg{display:flex;width:100%;}
+.mode-seg-item{flex:1;text-align:center;padding:8px 4px;}
+.simple-row .crit-row{display:block;}
+.simple-row .crit-field{margin-bottom:4px;}
+.simple-hint{margin:6px 0 12px;}
+.simple-score{width:100%;}
 </style>
 </head>
 <body>
@@ -455,6 +486,172 @@ function profilesFor(typeKey){
    SCORING HELPERS
 ============================================================ */
 function score100(s){ return s==null? null : Math.round(s*20); }
+/* ============================================================
+   ANALYSIS MODES (chosen per analysis, any investment type)
+   standard : the built-in subsections for the investment type
+   custom   : same main sections; subsections and their weights are edited per analysis
+   simple   : main sections only; one 0-100 score and a note per section
+   Each mode keeps its own data, so switching never deletes anything.
+     standard + custom share  analysis.categories[cat].criteria[id]  (score, confidence, reasoning, evidence)
+     custom adds              analysis.custom[cat] = [{id, name, w}]
+     simple uses              analysis.simple[cat] = {score, note}
+============================================================ */
+const MODE_META = {
+  standard:{label:'Standard', desc:'The built-in subsections for this investment type.'},
+  custom:{label:'Custom', desc:'Same main sections. You edit the subsections inside each one and set their weights.'},
+  simple:{label:'Sections only', desc:'No subsections. Give each main section a score out of 100 and a note. Leave a section blank to leave it out.'},
+};
+function analysisMode(analysis){ return (analysis && (analysis.mode==='custom' || analysis.mode==='simple'))? analysis.mode : 'standard'; }
+function criteriaFor(analysis, catDef){
+  if(analysisMode(analysis)==='custom' && analysis.custom && analysis.custom[catDef.id]) return analysis.custom[catDef.id];
+  return catDef.criteria;
+}
+function critWeight(cr){ const w = parseNum(cr.w); return (w!=null && w>=0)? w : 1; }
+function critShare(analysis, catDef, cr){
+  const list = criteriaFor(analysis, catDef);
+  const tot = list.reduce((s,x)=>s+critWeight(x),0);
+  return tot>0? Math.round(critWeight(cr)/tot*100) : 0;
+}
+function simpleEntry(analysis, catId){ return (analysis.simple && analysis.simple[catId]) || {}; }
+function simpleScore(analysis, catId){
+  const n = parseNum(simpleEntry(analysis, catId).score);
+  return n==null? null : Math.max(0, Math.min(100, n));
+}
+function newCritId(){ return 'u'+Date.now().toString(36)+Math.random().toString(36).slice(2,5); }
+function seedCustom(inv){
+  const a = inv.analysis;
+  if(a.custom) return;
+  a.custom = {};
+  FRAMEWORKS[inv.type].categories.forEach(c=>{ a.custom[c.id] = c.criteria.map(cr=>({id:cr.id, name:cr.name, w:'1'})); });
+}
+function ensureCustomList(inv, catId){
+  seedCustom(inv);
+  if(!inv.analysis.custom[catId]) inv.analysis.custom[catId] = [];
+  return inv.analysis.custom[catId];
+}
+function critHasData(inv, catId, critId){
+  const a = categoryAssessments(inv.analysis, catId)[critId];
+  return !!(a && (a.score!=null || (a.reasoning||'').trim() || (a.evidence||[]).length));
+}
+
+function modeBar(inv){
+  const mode = analysisMode(inv.analysis);
+  return `<div class="mode-bar"><div class="mode-seg">${['standard','custom','simple'].map(k=>`<div class="mode-seg-item ${k===mode?'active':''}" data-action="set-mode:${inv.id}:${k}">${MODE_META[k].label}</div>`).join('')}</div>
+    <div class="tiny muted mode-desc">${MODE_META[mode].desc} Switching never deletes anything you've entered.</div></div>`;
+}
+function critWeightTag(inv, cat, cr){
+  if(analysisMode(inv.analysis)!=='custom') return '';
+  return `<span class="crit-w">weight ${critWeight(cr)} · ${critShare(inv.analysis, cat, cr)}% of section</span>`;
+}
+function simpleRow(inv, c){
+  const e = simpleEntry(inv.analysis, c.id);
+  const s = simpleScore(inv.analysis, c.id);
+  const band = s==null? '' : (s>=75? 'Strong' : s>=55? 'Average' : 'Weak')+' · ';
+  return `<div class="criterion simple-row">
+    <div class="crit-row">
+      <div class="crit-field"><div class="crit-field-lbl">Score (0 to 100)</div>
+        <input type="text" inputmode="decimal" class="simple-score" placeholder="e.g. 72" value="${escAttr(e.score||'')}" data-blur="simple:${inv.id}:${c.id}:score"></div>
+      <div class="crit-field"><div class="scale-hint simple-hint">${band}75+ strong, 55 to 74 average, under 55 weak</div></div>
+    </div>
+    <textarea class="reason" placeholder="Why this score? Your notes for this section." data-blur="simple:${inv.id}:${c.id}:note">${escText(e.note)}</textarea>
+  </div>`;
+}
+function catBodyHtml(inv, c, isRisk){
+  const mode = analysisMode(inv.analysis);
+  if(mode==='simple') return simpleRow(inv, c);
+  const rows = criteriaFor(inv.analysis, c).map(cr=>criterionRow(inv, c, cr, isRisk)).join('');
+  if(mode==='custom'){
+    return (rows || `<div class="muted" style="font-size:12px;padding:10px 0">No subsections yet. Add one to start scoring this section.</div>`)
+      + `<div class="edit-sub" data-action="edit-crit:${inv.id}:${c.id}">${icon('plus')} Edit subsections</div>`;
+  }
+  return rows;
+}
+function riskSimpleBlock(inv, c){
+  if(analysisMode(inv.analysis)!=='simple') return '';
+  const s = simpleScore(inv.analysis, c.id), e = simpleEntry(inv.analysis, c.id);
+  return `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border-soft)"><span style="font-size:12px;color:var(--text2)">Section score</span>${riskPill(s!=null? Math.round(s) : null)}</div>${(e.note||'').trim()? `<div style="font-size:12px;color:var(--text2);padding-top:8px;white-space:pre-wrap">${esc(e.note)}</div>` : ''}`;
+}
+function modeNoteHtml(inv){
+  const m = analysisMode(inv.analysis);
+  if(m==='standard') return '';
+  const t = m==='custom'
+    ? 'Custom subsections: inside each section, subsection scores roll up using the weights you set. Weights are relative, so 2 counts twice as much as 1.'
+    : 'Sections-only mode: each section score was entered directly (0 to 100). Sections left blank are left out of the weighted average.';
+  return `<div class="caveat" style="margin-top:8px">${icon('info')} ${t}</div>`;
+}
+
+/* The subsection editor (opens in a modal on desktop, a sheet on mobile). */
+function critEditorBody(inv, catId){
+  if(!inv) return '';
+  const c = FRAMEWORKS[inv.type].categories.find(x=>x.id===catId);
+  if(!c) return '';
+  const list = criteriaFor(inv.analysis, c);
+  const tot = list.reduce((s,x)=>s+critWeight(x),0);
+  const confirm = STATE.ui.critConfirm;
+  return `
+  <div class="tiny muted" style="margin-bottom:10px"><b style="color:var(--text2)">${c.name}</b>. Weights are relative: a subsection with weight 2 counts twice as much as one with weight 1. A blank weight counts as 1.</div>
+  <div class="crit-edit-head"><div>Subsection</div><div style="text-align:center">Weight</div><div style="text-align:right">Share</div><div></div></div>
+  ${list.length? list.map((cr,i)=>{
+    const key = inv.id+':'+catId+':'+cr.id;
+    const asking = confirm===key;
+    return `<div class="crit-edit-row">
+      <input type="text" class="ce-name" id="crit-name-${cr.id}" placeholder="Name this subsection" value="${escAttr(cr.name)}" data-live="crit:${key}:name">
+      <input type="text" inputmode="decimal" class="ce-w" placeholder="1" value="${escAttr(cr.w==null?'':cr.w)}" data-live="crit:${key}:w">
+      <span class="ce-share" id="crit-share-${cr.id}">${tot>0? Math.round(critWeight(cr)/tot*100) : 0}%</span>
+      <div class="ce-btns">
+        <div class="ce-b up ${i===0?'off':''}" data-action="crit-mv:${key}:-1" title="Move up">${icon('chevron')}</div>
+        <div class="ce-b down ${i===list.length-1?'off':''}" data-action="crit-mv:${key}:1" title="Move down">${icon('chevron')}</div>
+        <div class="ce-b rm ${asking?'confirm':''}" data-action="crit-rm:${key}" title="Remove">${asking? 'Remove?' : icon('trash')}</div>
+      </div>
+    </div>`;
+  }).join('') : `<div class="muted" style="font-size:12px;padding:12px 0">No subsections. Add one below.</div>`}
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+    <div class="btn btn-ghost btn-sm" data-action="crit-add:${inv.id}:${catId}">${icon('plus')} Add subsection</div>
+    <div class="btn btn-ghost btn-sm" data-action="crit-reset:${inv.id}:${catId}">Reset to standard</div>
+  </div>
+  <div class="tiny muted" style="margin-top:8px">Removing a subsection hides it from this analysis. Anything you entered under it is kept, and comes back if you reset to standard.</div>`;
+}
+function refreshCritShares(inv, catId){
+  const c = FRAMEWORKS[inv.type].categories.find(x=>x.id===catId);
+  if(!c) return;
+  const list = criteriaFor(inv.analysis, c);
+  const tot = list.reduce((s,x)=>s+critWeight(x),0);
+  list.forEach(cr=>{ const el = document.getElementById('crit-share-'+cr.id); if(el) el.textContent = (tot>0? Math.round(critWeight(cr)/tot*100) : 0)+'%'; });
+}
+
+/* Scoring and completion that respect the mode. */
+function categoryScore(analysis, catDef){
+  const mode = analysisMode(analysis);
+  if(mode==='simple'){ const s = simpleScore(analysis, catDef.id); return s==null? null : s/20; }
+  const a = categoryAssessments(analysis, catDef.id);
+  const list = criteriaFor(analysis, catDef);
+  if(mode==='custom'){
+    let sum = 0, wsum = 0;
+    list.forEach(cr=>{ const s = effectiveScore(a[cr.id]); if(s!=null){ const w = critWeight(cr); sum += s*w; wsum += w; } });
+    return wsum>0? sum/wsum : null;
+  }
+  const scores = list.map(c=> effectiveScore(a[c.id])).filter(s=>s!=null);
+  if(!scores.length) return null;
+  return scores.reduce((x,y)=>x+y,0)/scores.length;
+}
+function categoryCompletion(analysis, catDef){
+  if(analysisMode(analysis)==='simple') return simpleScore(analysis, catDef.id)!=null? 100 : 0;
+  const a = categoryAssessments(analysis, catDef.id);
+  const list = criteriaFor(analysis, catDef);
+  const total = list.length;
+  const done = list.filter(c=> a[c.id] && a[c.id].score!=null).length;
+  return total? Math.round(done/total*100) : 0;
+}
+function overallCompletion(analysis, framework){
+  let total = 0, done = 0;
+  const simple = analysisMode(analysis)==='simple';
+  framework.categories.forEach(c=>{
+    if(simple){ total++; if(simpleScore(analysis, c.id)!=null) done++; return; }
+    const a = categoryAssessments(analysis, c.id);
+    criteriaFor(analysis, c).forEach(cr=>{ total++; if(a[cr.id] && a[cr.id].score!=null) done++; });
+  });
+  return total? Math.round(done/total*100) : 0;
+}
 function categoryAssessments(analysis, catId){ return (analysis.categories[catId] && analysis.categories[catId].criteria) || {}; }
 /* Confidence-adjusted scoring. Confidence (1-5) is the weight on a criterion's score:
    at 5 the score counts in full; as confidence drops, the score is pulled toward 3
@@ -477,25 +674,6 @@ function confHint(a, sep){
     return labels[a.confidence]+sep+'counts in full';
   }
   return labels[a.confidence];
-}
-function categoryScore(analysis, catDef){
-  const a = categoryAssessments(analysis, catDef.id);
-  const scores = catDef.criteria.map(c=> effectiveScore(a[c.id])).filter(s=>s!=null);
-  if(!scores.length) return null;
-  return scores.reduce((x,y)=>x+y,0)/scores.length;
-}
-function categoryCompletion(analysis, catDef){
-  const a = categoryAssessments(analysis, catDef.id);
-  const total = catDef.criteria.length;
-  const done = catDef.criteria.filter(c=> a[c.id] && a[c.id].score!=null).length;
-  return total? Math.round(done/total*100) : 0;
-}
-function overallCompletion(analysis, framework){
-  let total=0, done=0;
-  framework.categories.forEach(c=>{
-    c.criteria.forEach(cr=>{ total++; const a=categoryAssessments(analysis,c.id); if(a[cr.id]&&a[cr.id].score!=null) done++; });
-  });
-  return total? Math.round(done/total*100) : 0;
 }
 function overallScore(analysis, framework, weights){
   let total=0, wsum=0;
@@ -645,6 +823,7 @@ function initState(){
     STATE.ui.toast = null;
     STATE.ui.modal = null;
     STATE.ui.savingFlash = false;
+    STATE.ui.critConfirm = null;
     STATE.github = STATE.github || { connected:false, repo:'', branch:'main', token:'', lastSync:null, autoSync:true, lastError:null };
     if(STATE.github.lastError===undefined) STATE.github.lastError=null;
     if(STATE.github.autoSync==null) STATE.github.autoSync = true;
@@ -888,6 +1067,7 @@ function shellHtml(){
   if(STATE.ui.modal && STATE.ui.modal.type==='confirmRestore') out += sheetWrap('Restore this version?', confirmRestoreSheetBody(STATE.ui.modal.id, STATE.ui.modal.idx));
   if(STATE.ui.modal && STATE.ui.modal.type==='confirmDeleteVersion') out += sheetWrap('Delete this version?', confirmDeleteVersionSheetBody(STATE.ui.modal.id, STATE.ui.modal.idx));
   if(STATE.ui.modal && STATE.ui.modal.type==='confirmPull') out += sheetWrap('Pull from GitHub?', confirmPullSheetBody());
+  if(STATE.ui.modal && STATE.ui.modal.type==='editCrit') out += sheetWrap('Edit subsections', critEditorBody(findInv(STATE.ui.modal.id), STATE.ui.modal.catId) + '<div class="btn btn-primary btn-block" style="margin-top:14px" data-action="close-modal">Done</div>');
   if(STATE.ui.toast) out += `<div class="toast">${STATE.ui.toast}</div>`;
   return out;
 }
@@ -1337,7 +1517,8 @@ function wsSummary(inv,f,w,os,comp){
 function wsAnalysis(inv,f,comp){
   const open = STATE.ui.openCats[inv.id] || {};
   return `
-  <div class="callout">${icon('info')} <b class="num">${comp}%</b> of criteria answered across ${f.categories.length} categories.</div>
+  ${modeBar(inv)}
+  <div class="callout">${icon('info')} <b class="num">${comp}%</b> of ${analysisMode(inv.analysis)==='simple'?'sections scored':'criteria answered'} across ${f.categories.length} categories.</div>
   ${f.categories.map(c=>{
     const s = categoryScore(inv.analysis,c); const cc = categoryCompletion(inv.analysis,c);
     const isOpen = !!open[c.id];
@@ -1352,7 +1533,7 @@ function wsAnalysis(inv,f,comp){
       ${isOpen? `<div class="acc-body">
         ${isRisk? `<div class="scale-hint" style="margin-top:11px">${icon('info')} Higher score = lower risk.</div>`:''}
         ${(c.id==='ret' && inv.type==='stock')? expReturnHint(inv) : ''}
-        ${c.criteria.map(cr=>criterionRow(inv, c, cr, isRisk)).join('')}
+        ${catBodyHtml(inv, c, isRisk)}
       </div>` : ''}
     </div>`;
   }).join('')}
@@ -1362,7 +1543,7 @@ function criterionRow(inv, cat, cr, isRisk){
   const a = (inv.analysis.categories[cat.id] && inv.analysis.categories[cat.id].criteria[cr.id]) || {};
   const key = inv.id+':'+cat.id+':'+cr.id;
   return `<div class="criterion">
-    <div class="crit-name">${cr.name}</div>
+    <div class="crit-name">${cr.name||'Untitled subsection'}${critWeightTag(inv,cat,cr)}</div>
     <div class="crit-block">
       <div class="crit-field-lbl">Score</div>
       <div class="scale">${[1,2,3,4,5].map(v=>`<div class="scale-btn ${isRisk?'risk':''} ${a.score===v?'on':''}" data-action="set-score:${key}:${v}">${v}</div>`).join('')}</div>
@@ -1394,12 +1575,70 @@ const SCN_META = {
   base:{label:'Base', sub:'current reality'},
   bull:{label:'Bull', sub:'upside'},
 };
+/* Numbers typed by the user. Understands shorthand: 1.34tn, 250bn, 3.5m, 12k (and a trailing
+   x or %), so "3x" and "8%" parse as 3 and 8. Anything else falls back to the digits in it. */
+const NUM_SUFFIX = {k:1e3, m:1e6, mn:1e6, mm:1e6, b:1e9, bn:1e9, t:1e12, tn:1e12};
 function parseNum(s){
   if(s==null) return null;
-  const t = String(s).replace(/[^0-9.\-]/g,'');
-  if(t===''||t==='-'||t==='.') return null;
-  const n = parseFloat(t);
+  const t = String(s).trim().toLowerCase().replace(/[,\s]/g,'');
+  const m = t.match(/^[^0-9.\-]*(-?\d*\.?\d+)(tn|bn|mn|mm|k|m|b|t)?[x%]*$/);
+  if(m){
+    const n = parseFloat(m[1]) * (m[2]? NUM_SUFFIX[m[2]] : 1);
+    return isFinite(n)? n : null;
+  }
+  const d = t.replace(/[^0-9.\-]/g,'');
+  if(d===''||d==='-'||d==='.') return null;
+  const n = parseFloat(d);
   return isFinite(n)? n : null;
+}
+
+/* How each valuation field is shown once you stop typing. What is stored stays exactly what
+   you typed, so calculations never see "3x" or "1.34TN" as text.
+     compact : big amounts, 1.34TN / 250BN / 3.5MN (below a million: normal number with commas)
+     money   : normal currency amount, in the investment's currency
+     mult    : multiples, 14.2x
+     pct     : percentages, 6.25%
+     plain   : shown as typed */
+function fieldKind(k){
+  const s = String(k);
+  if(/market cap|enterprise value|\baum\b|fund size/i.test(s)) return 'compact';
+  if(/p\/e|ev\/|p\/b|p\/s|price\/fcf|\bmultiple\b/i.test(s)) return 'mult';
+  if(/\byield\b|\brate\b|\bratio\b|\breturn\b|\bdifference\b|\bfee\b|weight|%/i.test(s)) return 'pct';
+  if(/price|face value|\bnav\b|\beps\b|per share|\/ share/i.test(s)) return 'money';
+  return 'plain';
+}
+function trimNum(n, d){ return String(parseFloat(n.toFixed(d))); }
+function fmtCompactAmt(n, cur){
+  const a = Math.abs(n), sym = curSym(cur), sign = n<0? '-' : '';
+  if(a>=1e12) return sign+sym+trimNum(a/1e12,2)+'TN';
+  if(a>=1e9)  return sign+sym+trimNum(a/1e9,2)+'BN';
+  if(a>=1e6)  return sign+sym+trimNum(a/1e6,2)+'MN';
+  return sign+sym+a.toLocaleString('en-US',{minimumFractionDigits:0, maximumFractionDigits:2});
+}
+function fmtMoneyField(n, cur){
+  if(Math.abs(n)>=1e6) return fmtCompactAmt(n, cur);
+  const a = Math.abs(n);
+  return (n<0? '-' : '')+curSym(cur)+a.toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits: a<10? 4 : 2});
+}
+function fmtField(kind, raw, cur){
+  if(raw==null || String(raw).trim()==='') return '';
+  const n = parseNum(raw);
+  if(n==null) return String(raw);
+  if(kind==='mult')    return trimNum(n,2)+'x';
+  if(kind==='pct')     return trimNum(n, Math.abs(n)<1? 3 : 2)+'%';
+  if(kind==='money')   return fmtMoneyField(n, cur);
+  if(kind==='compact') return fmtCompactAmt(n, cur);
+  return String(raw);
+}
+function calcDisplay(k, x, cur){
+  const kind = fieldKind(k);
+  return kind==='plain'? String(x) : fmtField(kind, String(x), cur);
+}
+function valBox(inv, k, m){
+  const v = inv.analysis.valuation || {};
+  const kind = fieldKind(k), cur = inv.currency || '', raw = v[k] || '';
+  const c = m.calc[k];
+  return `<div class="metric-box"><label>${k}<span class="calc-tag" id="calc-${vinId(k)}" style="${c!=null?'':'display:none'}">calculated</span></label><input type="text" inputmode="decimal" id="${vinId(k)}" class="${c!=null?'is-calc':''}" placeholder="${c!=null? calcDisplay(k,c,cur) : '-'}" value="${escAttr(fmtField(kind, raw, cur))}" data-live="val:${inv.id}:${k}" data-fmt="${kind}" data-cur="${escAttr(cur)}" data-raw="${escAttr(raw)}"></div>`;
 }
 function curSym(code){
   const m = {USD:'$',NGN:'₦',EUR:'€',GBP:'£',JPY:'¥',ZAR:'R ',KES:'KSh ',GHS:'GH₵'};
@@ -1443,11 +1682,6 @@ function valMarket(inv){
   if(dps!=null && p!=null && p>0 && parseNum(v['Dividend Yield'])==null) calc['Dividend Yield'] = dps/p*100;
   const ok = p!=null && p>0 && eps!=null && eps>0;
   return { price:p, eps, pe:(pe!=null && pe>0)? pe : (ok? p/eps : null), dps, payout, calc, ok };
-}
-function calcDisplay(k, x){
-  if(k==='Dividend Yield') return x.toFixed(2)+'%';
-  if(k==='P/E') return x.toFixed(1);
-  return Math.abs(x)>=1000? x.toFixed(0) : x.toFixed(2);
 }
 
 function scnRun(m, N, h, g, xpe, payPct){
@@ -1593,11 +1827,6 @@ function asofNoteHtml(inv){
   if(days>30) return `<span class="stale">${days} days old, worth refreshing</span>`;
   return `<span class="muted">${days<=0? 'today' : days+' day'+(days===1?'':'s')+' old'}</span>`;
 }
-function valBox(inv, k, m){
-  const v = inv.analysis.valuation || {};
-  const c = m.calc[k];
-  return `<div class="metric-box"><label>${k}<span class="calc-tag" id="calc-${vinId(k)}" style="${c!=null?'':'display:none'}">calculated</span></label><input type="text" inputmode="decimal" id="${vinId(k)}" class="${c!=null?'is-calc':''}" placeholder="${c!=null? calcDisplay(k,c) : '-'}" value="${escAttr(v[k]||'')}" data-live="val:${inv.id}:${k}"></div>`;
-}
 function payoutBox(m){
   return `<div class="metric-box"><label>Payout ratio<span class="calc-tag">calculated</span></label><div class="static-val num" id="val-payout">${m.payout!=null? m.payout.toFixed(0)+'%' : '-'}</div></div>`;
 }
@@ -1616,6 +1845,17 @@ function handleLive(spec, value){
   const p = spec.split(':');
   const inv = findInv(p[1]);
   if(!inv) return;
+  if(p[0]==='crit'){
+    const list = inv.analysis.custom && inv.analysis.custom[p[2]];
+    const cr = list && list.find(x=>x.id===p[3]);
+    if(!cr) return;
+    if(p[4]==='name') cr.name = value; else if(p[4]==='w') cr.w = value;
+    inv.updatedAt = Date.now();
+    refreshCritShares(inv, p[2]);
+    clearTimeout(liveSaveTimer);
+    liveSaveTimer = setTimeout(function(){ persist(); scheduleAutoSync(); }, 350);
+    return;
+  }
   if(p[0]==='val'){
     if(!inv.analysis.valuation) inv.analysis.valuation = {};
     inv.analysis.valuation[p.slice(2).join(':')] = value;
@@ -1640,7 +1880,7 @@ function refreshValLive(inv){
   ['Share Price','EPS','P/E','Dividend Yield'].forEach(k=>{
     const inp = el(vinId(k)); if(!inp) return;
     const c = m.calc[k];
-    inp.placeholder = c!=null? calcDisplay(k,c) : '-';
+    inp.placeholder = c!=null? calcDisplay(k,c,inv.currency) : '-';
     inp.classList.toggle('is-calc', c!=null);
     const tag = el('calc-'+vinId(k)); if(tag) tag.style.display = c!=null? '' : 'none';
   });
@@ -1703,7 +1943,7 @@ function wsValuationGeneric(inv,f){
   <div class="callout">${icon('info')} Objective inputs below are raw data. Qualitative valuation judgment is recorded in the Analysis tab so score, reasoning and evidence stay together.</div>
   <div class="section-title">Market / Objective Data</div>
   <div class="metric-grid">
-    ${f.valuationFields.map(k=>`<div class="metric-box"><label>${k}</label><input type="text" inputmode="decimal" placeholder="-" value="${escAttr(v[k]||'')}" data-blur="val:${inv.id}:${k}"></div>`).join('')}
+    ${f.valuationFields.map(k=>valBox(inv,k,{calc:{}})).join('')}
   </div>
   ${isBond? realReturnBlock(inv) : ''}
   ${!isStock && !isBond? `<div class="callout">${icon('info')} Fund-level cost of access is captured above. Portfolio valuation and manager/strategy judgment live in the Analysis tab.</div>` : ''}
@@ -1733,7 +1973,7 @@ function wsRisk(inv,f){
   ${riskCats.map(c=>{
     const a = categoryAssessments(inv.analysis,c.id);
     return `<div class="card" style="margin-bottom:10px"><div style="font-weight:700;font-size:12.5px;margin-bottom:6px">${c.name}</div>
-      ${c.criteria.map(cr=>{ const s=a[cr.id]&&a[cr.id].score; return `<div class="risk-mini"><span class="nm">${cr.name}</span>${riskPill(s!=null?score100(s):null)}</div>`; }).join('')}
+      ${riskSimpleBlock(inv,c)}${(analysisMode(inv.analysis)==='simple'? [] : criteriaFor(inv.analysis,c)).map(cr=>{ const s=a[cr.id]&&a[cr.id].score; return `<div class="risk-mini"><span class="nm">${cr.name}</span>${riskPill(s!=null?score100(s):null)}</div>`; }).join('')}
     </div>`;
   }).join('')}
   <div class="section-title">Narrative Risk Assessment</div>
@@ -1788,7 +2028,7 @@ function scoreExplainSheetBody(inv){
   ${f.categories.map(c=>{ const s=categoryScore(inv.analysis,c); const s100=s!=null?score100(s):null; const wgt=w[c.id]; const contrib = s100!=null? Math.round(s100*wgt)/100 : null;
     return `<div class="risk-mini"><span class="nm">${c.name}</span><span style="display:flex;gap:12px;font-size:12px" class="num"><span class="muted">${wgt}%</span><span style="font-weight:700">${s100!=null?s100:'-'}</span></span></div>`; }).join('')}
   <div class="caveat">${icon('info')} Categories with no scored criteria are excluded from the weighted average rather than counted as zero.</div>
-  <div class="caveat">${icon('info')} ${confAdjustOn()? 'Confidence adjustment is <b>on</b>: each criterion score is pulled toward 3 (Average) the lower your confidence is, so a 5 at confidence 2 counts as 3.5. Criteria with no confidence set count in full. Change this in Settings.' : 'Confidence adjustment is <b>off</b>: criterion scores count exactly as entered. You can turn it on in Settings.'}</div>
+  ${modeNoteHtml(inv)}<div class="caveat" style="${analysisMode(inv.analysis)==='simple'?'display:none':''}">${icon('info')} ${confAdjustOn()? 'Confidence adjustment is <b>on</b>: each criterion score is pulled toward 3 (Average) the lower your confidence is, so a 5 at confidence 2 counts as 3.5. Criteria with no confidence set count in full. Change this in Settings.' : 'Confidence adjustment is <b>off</b>: criterion scores count exactly as entered. You can turn it on in Settings.'}</div>
   `;
 }
 function evidenceSheetBody(key){
@@ -1818,7 +2058,7 @@ function versionViewSheetBody(inv, idx){
   <div style="font-size:12.5px;color:var(--text2);margin-bottom:12px">${v.note||'Saved version'} · ${fmtDateTime(v.ts)} · Overall score at save time: <b class="num" style="color:var(--text)">${v.overallScore!=null?v.overallScore:'-'}</b></div>
   ${snap? `
   <div class="card" style="margin-bottom:14px">
-    ${f.categories.map(c=>{ const s = categoryScore({categories:snap.categories||{}}, c); return `<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--border-soft)"><span class="muted">${c.name}</span><span class="num" style="font-weight:700">${s!=null?score100(s):'-'}</span></div>`; }).join('')}
+    ${f.categories.map(c=>{ const s = categoryScore({categories:snap.categories||{}, mode:snap.mode, custom:snap.custom, simple:snap.simple}, c); return `<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--border-soft)"><span class="muted">${c.name}</span><span class="num" style="font-weight:700">${s!=null?score100(s):'-'}</span></div>`; }).join('')}
   </div>
   ${snap.thesis && snap.thesis.thesis? `<div class="card" style="margin-bottom:14px"><div style="font-weight:700;font-size:12.5px;margin-bottom:6px">Thesis at the time</div><div style="font-size:12.5px;color:var(--text2);white-space:pre-wrap">${esc(snap.thesis.thesis)}</div></div>` : ''}
   <div class="caveat" style="margin-bottom:16px">${icon('info')} Restoring replaces this analysis's current scores, reasoning, valuation and thesis with this saved snapshot. This can't be undone (save a new version first if you want to keep your current state).</div>
@@ -1927,8 +2167,23 @@ function bindEvents(){
   root.oninput = function(e){
     const t = e.target;
     const spec = t && t.getAttribute && t.getAttribute('data-live');
+    if(t && t.getAttribute && t.getAttribute('data-fmt')!==null) t.setAttribute('data-raw', t.value);
     if(spec) handleLive(spec, t.value);
   };
+  if(!root._fmtBound){
+    root.addEventListener('focusin', function(e){
+      const t = e.target;
+      if(t && t.getAttribute && t.getAttribute('data-fmt')!==null) t.value = t.getAttribute('data-raw') || '';
+    });
+    root.addEventListener('focusout', function(e){
+      const t = e.target;
+      if(t && t.getAttribute && t.getAttribute('data-fmt')!==null){
+        const raw = t.getAttribute('data-raw');
+        t.value = fmtField(t.getAttribute('data-fmt'), raw!==null? raw : t.value, t.getAttribute('data-cur'));
+      }
+    });
+    root._fmtBound = true;
+  }
   if(!root._blurBound){
     root.addEventListener('blur', function(e){
       const t = e.target;
@@ -1988,6 +2243,7 @@ function handleBlur(kind, value){
   const parts = kind.split(':');
   const tag = parts[0];
   if(tag==='reason'){ const [,id,catId,crId]=parts; const inv=findInv(id); if(!inv) return; const c=ensureCriterion(inv,catId,crId); c.reasoning=value; touch(inv); return; }
+  if(tag==='simple'){ const id=parts[1], catId=parts[2], field=parts[3]; const inv=findInv(id); if(!inv) return; if(!inv.analysis.simple) inv.analysis.simple={}; const e=inv.analysis.simple[catId]||(inv.analysis.simple[catId]={score:'',note:''}); if(field==='score'){ const n=parseNum(value); e.score = n==null? '' : String(Math.round(Math.max(0,Math.min(100,n))*10)/10); } else { e.note=value; } touch(inv); if(field==='score') render(); return; }
   if(tag==='val'){ const id=parts[1]; const key=parts.slice(2).join(':'); const inv=findInv(id); inv.analysis.valuation[key]=value; touch(inv); return; }
   if(tag==='dcf'){ const id=parts[1]; const key=parts[2]; const inv=findInv(id); if(!inv.analysis.dcf) inv.analysis.dcf={}; inv.analysis.dcf[key]=value; touch(inv); return; }
   if(tag==='field'){ const id=parts[1]; const key=parts[2]; const inv=findInv(id); inv.analysis[key]=value; touch(inv); return; }
@@ -2075,6 +2331,9 @@ function handleAction(action, e){
       valuation: inv.analysis.valuation,
       dcf: inv.analysis.dcf || null,
       scn: inv.analysis.scn || null,
+      mode: inv.analysis.mode || 'standard',
+      custom: inv.analysis.custom || null,
+      simple: inv.analysis.simple || null,
       riskNotes: inv.analysis.riskNotes,
       thesis: inv.analysis.thesis,
     }));
@@ -2090,6 +2349,8 @@ function handleAction(action, e){
       inv.analysis.valuation = JSON.parse(JSON.stringify(v.snapshot.valuation||{}));
       if(v.snapshot.dcf) inv.analysis.dcf = JSON.parse(JSON.stringify(v.snapshot.dcf));
       if(v.snapshot.scn) inv.analysis.scn = JSON.parse(JSON.stringify(v.snapshot.scn));
+      if('mode' in v.snapshot){ inv.analysis.mode = v.snapshot.mode || 'standard'; inv.analysis.custom = v.snapshot.custom? JSON.parse(JSON.stringify(v.snapshot.custom)) : null; inv.analysis.simple = v.snapshot.simple? JSON.parse(JSON.stringify(v.snapshot.simple)) : null; }
+      else { inv.analysis.mode = 'standard'; }
       inv.analysis.riskNotes = JSON.parse(JSON.stringify(v.snapshot.riskNotes||{keyRisks:'',lossScenarios:'',whatWouldChangeMind:''}));
       inv.analysis.thesis = JSON.parse(JSON.stringify(v.snapshot.thesis||{}));
       touch(inv);
@@ -2107,6 +2368,12 @@ function handleAction(action, e){
   if(kind==='scn-fill'){ const inv=findInv(parts[1]); if(!inv) return; if(!scnFill(inv)){ toast('Enter the Base case earnings growth first'); return; } touch(inv); render(); toast('Bear and Bull filled from Base'); return; }
   if(kind==='scn-sens'){ STATE.ui.scnSens = !STATE.ui.scnSens; render(); return; }
   if(kind==='scn-tab'){ STATE.ui.scnTab = parts[1]; render(); return; }
+  if(kind==='set-mode'){ const inv=findInv(parts[1]); if(!inv) return; const mo=parts[2]; if(!['standard','custom','simple'].includes(mo)) return; inv.analysis.mode=mo; if(mo==='custom') seedCustom(inv); touch(inv); render(); return; }
+  if(kind==='edit-crit'){ const inv=findInv(parts[1]); if(!inv) return; seedCustom(inv); STATE.ui.critConfirm=null; STATE.ui.modal={type:'editCrit', id:parts[1], catId:parts[2]}; render(); return; }
+  if(kind==='crit-add'){ const inv=findInv(parts[1]); if(!inv) return; const list=ensureCustomList(inv, parts[2]); const nid=newCritId(); list.push({id:nid, name:'', w:'1'}); STATE.ui.critConfirm=null; touch(inv); render(); setTimeout(function(){ const el=document.getElementById('crit-name-'+nid); if(el) el.focus(); },0); return; }
+  if(kind==='crit-mv'){ const inv=findInv(parts[1]); if(!inv) return; const list=ensureCustomList(inv, parts[2]); const i=list.findIndex(x=>x.id===parts[3]); const j=i+parseInt(parts[4]); if(i<0||j<0||j>=list.length) return; const tmp=list[i]; list[i]=list[j]; list[j]=tmp; STATE.ui.critConfirm=null; touch(inv); render(); return; }
+  if(kind==='crit-rm'){ const inv=findInv(parts[1]); if(!inv) return; const list=ensureCustomList(inv, parts[2]); const key=parts[1]+':'+parts[2]+':'+parts[3]; if(critHasData(inv,parts[2],parts[3]) && STATE.ui.critConfirm!==key){ STATE.ui.critConfirm=key; render(); return; } const i=list.findIndex(x=>x.id===parts[3]); if(i>=0) list.splice(i,1); STATE.ui.critConfirm=null; touch(inv); render(); return; }
+  if(kind==='crit-reset'){ const inv=findInv(parts[1]); if(!inv) return; seedCustom(inv); const c=FRAMEWORKS[inv.type].categories.find(x=>x.id===parts[2]); if(c) inv.analysis.custom[parts[2]]=c.criteria.map(cr=>({id:cr.id, name:cr.name, w:'1'})); STATE.ui.critConfirm=null; touch(inv); render(); return; }
   if(kind==='reset-weights'){ delete STATE.frameworkOverrides[parts[1]]; render(); return; }
   if(kind==='toggle-theme'){ STATE.ui.theme = STATE.ui.theme==='light'?'dark':'light'; persist(); render(); return; }
   if(kind==='toggle-conf-adjust'){ STATE.ui.confidenceAdjust = !confAdjustOn(); persist(); render(); toast('Confidence adjustment '+(confAdjustOn()?'on':'off')); return; }
